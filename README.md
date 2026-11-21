@@ -11,7 +11,7 @@ implementation
 
 ## Implemented graph path
 
-Six local two-player games are also available from **Graphs**: Sprouts, Graph Coloring Duel, Shannon Switching, Node Kayles, Shortest-Path Challenge, and Dots and Boxes. See the handoff for exact variants and limitations.
+Six local two-player games are also available from **Graphs**: Planar Color & Connect, Graph Coloring Duel, Shannon Switching, Node Kayles, Shortest-Path Challenge, and Dots and Boxes. See the handoff for exact variants and limitations.
 
 Dijkstra, BFS, 0–1 BFS, vertex-biconnected components, and SCC are playable from the **Graphs** card. Each topic includes randomly generated boards, hints, answer checking, theory, and algorithm pseudocode. The six two-player games also generate random boards on entry and on **New random game**.
 

@@ -24,6 +24,7 @@ fun randomNetwork(random: Random, weight: () -> Int = { 1 }, colorable: Boolean 
 }
 
 fun randomDuel(kind: DuelKind, random: Random = Random.Default): DuelState {
+    if (kind == DuelKind.PLANAR) return DuelState(kind, LessonGraph(random.nextInt(2,7), emptyList()))
     if (kind == DuelKind.BOXES) {
         val columns = random.nextInt(3,6)
         val rows = random.nextInt(3,6)
@@ -39,15 +40,6 @@ fun randomDuel(kind: DuelKind, random: Random = Random.Default): DuelState {
     return DuelState(kind, randomNetwork(random,
         weight = { if (kind == DuelKind.PATH) random.nextInt(1,10) else 1 },
         colorable = kind == DuelKind.COLORING, cycle = kind == DuelKind.SHANNON))
-}
-
-fun randomSprouts(random: Random = Random.Default): SproutsState {
-    // Jittered cells guarantee useful spacing without an unbounded rejection loop.
-    val cells = (0..8).shuffled(random).take(random.nextInt(3,7))
-    return SproutsState(dots = cells.map {
-        SproutDot(InkPoint(.18f+(it%3)*.32f+random.nextFloat()*.07f,
-            .16f+(it/3)*.32f+random.nextFloat()*.07f))
-    })
 }
 
 fun randomLesson(topic: GraphTopic, random: Random = Random.Default): LessonGraph = when (topic) {

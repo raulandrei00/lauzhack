@@ -17,22 +17,13 @@ data class LessonGraph(val size: Int, val edges: List<GraphEdge>, val directed: 
     fun neighbors(node: Int): List<Pair<Int, Int>> = adjacency[node]
 }
 
-enum class GraphTopic(val title: String, val mission: String, val theory: String, val implementation: String) {
-    DIJKSTRA("Dijkstra: delivery run", "Deliver from A to F with the lowest total road cost.",
-        "Fewest roads does not mean cheapest journey. Dijkstra repeatedly settles the unsettled vertex with smallest tentative distance, then relaxes its outgoing edges. Nonnegative weights make settled distances final.",
-        "dist[start] = 0; all others = infinity\nrepeat: settle the unused vertex u with minimum dist\nfor each edge (u,v,w): dist[v] = min(dist[v], dist[u]+w)\nThis small-board implementation: O(V² + E). A heap gives O((V+E) log V)."),
-    BFS("BFS: rescue relay", "Reach F from A using the fewest roads. Every road takes one turn.",
-        "BFS explores in layers: first all vertices one road away, then two, and so on. A FIFO queue guarantees the first discovery is a shortest path when every edge has equal cost.",
-        "queue.addLast(start); dist[start] = 0\nwhile queue is not empty: u = queue.removeFirst()\nfor each unseen neighbor v: dist[v] = dist[u]+1; queue.addLast(v)\nTime O(V+E); space O(V)."),
-    ZERO_ONE("0–1 BFS: portal courier", "Reach F from A paying as few tolls as possible. Zero-cost roads are free portals.",
-        "A free edge can improve a route without increasing its cost. Put a neighbor reached by a zero-cost edge at the front of a deque; put a neighbor reached by a cost-one edge at the back. Relax distances even for previously discovered vertices.",
-        "deque.addFirst(start); dist[start] = 0\nif dist[u]+w < dist[v]: update dist[v]\nif w == 0: deque.addFirst(v); else: deque.addLast(v)\nOnly weights 0 and 1 are allowed. Time O(V+E)."),
-    BICONNECTED("Biconnected: resilient districts", "Select every vertex in one maximal resilient block, then claim it. Find all blocks.",
-        "A vertex-biconnected block has no internal articulation vertex: removing any one vertex does not split the remaining block. Blocks may share an articulation vertex. In this lesson a bridge is a two-vertex block and an isolated vertex is a singleton block.",
-        "DFS records discovery time and low-link value. Push tree/back edges onto a stack.\nWhen low[child] >= discovery[parent], pop through that tree edge to form a block.\nRun DFS from every unvisited vertex. Time O(V+E)."),
-    SCC("SCC: return-ticket islands", "Select a maximal group where every vertex can reach every other following the arrows. Find all groups.",
-        "One-way roads can connect two groups without merging them. A strongly connected component requires paths in both directions between every pair. SCCs partition the vertices; a lone vertex is also an SCC.",
-        "Kosaraju: DFS the graph and record finishing order.\nReverse every edge. DFS in reverse finishing order; each traversal is one SCC.\nTime O(V+E); space O(V+E).")
+/** Lessons, listed in the suggested learning order. Teaching content lives in [guide] (GraphLearning.kt). */
+enum class GraphTopic(val title: String, val mission: String) {
+    BFS("BFS: rescue relay", "Reach F from A using the fewest roads. Every road takes one turn."),
+    ZERO_ONE("0–1 BFS: portal courier", "Reach F from A paying as few tolls as possible. Zero-cost roads are free portals."),
+    DIJKSTRA("Dijkstra: delivery run", "Deliver from A to F with the lowest total road cost."),
+    SCC("SCC: return-ticket islands", "Select a maximal group where every vertex can reach every other following the arrows. Find all groups."),
+    BICONNECTED("Biconnected: resilient districts", "Select every vertex in one maximal resilient block, then claim it. Find all blocks.")
 }
 
 fun shortestDistances(graph: LessonGraph, start: Int, topic: GraphTopic): List<Int> {

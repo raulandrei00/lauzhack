@@ -5,7 +5,7 @@ import kotlin.test.*
 
 class RandomBoardsTest {
     @Test fun seededBoardsAreReproducibleAndVary() {
-        for (kind in DuelKind.entries.filter { it != DuelKind.SPROUTS }) {
+        for (kind in DuelKind.entries) {
             assertEquals(randomDuel(kind,Random(42)),randomDuel(kind,Random(42)))
             assertTrue((0..30).map { randomDuel(kind,Random(it)).graph }.toSet().size > 1,kind.name)
         }
@@ -13,7 +13,6 @@ class RandomBoardsTest {
             assertEquals(randomLesson(topic,Random(42)),randomLesson(topic,Random(42)))
             assertTrue((0..30).map { randomLesson(topic,Random(it)) }.toSet().size > 1)
         }
-        assertEquals(randomSprouts(Random(42)),randomSprouts(Random(42)))
     }
     @Test fun generatedGamesRespectTheirConstraints() {
         repeat(100) { seed ->
@@ -37,13 +36,6 @@ class RandomBoardsTest {
                     assertTrue(graph.neighbors(0).none { it.first == 5 })
                     for (edge in graph.edges) assertTrue(shortestDistances(graph.copy(edges = graph.edges-edge),0,GraphTopic.BFS).last() != Int.MAX_VALUE)
                 }
-            }
-            val sprouts = randomSprouts(Random(seed))
-            assertTrue(sprouts.dots.size in 3..6)
-            for ((i,a) in sprouts.dots.withIndex()) {
-                assertEquals(0,a.degree)
-                assertTrue(a.point.x in .02f.. .98f && a.point.y in .02f.. .98f)
-                sprouts.dots.drop(i+1).forEach { assertTrue(a.point.distance(it.point) > .2f) }
             }
         }
     }
