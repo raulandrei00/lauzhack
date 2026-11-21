@@ -20,6 +20,26 @@ Owns the graph algorithm lessons and the local two-player graph games. Shared Ko
   - `TapBoard` gained optional `onNodeDrag` and `onEmptyTap` parameters. Only the editor passes them, so the other boards keep their original tap handling.
   - `SketchRecognizerTest` covers circles, snapping, implicit vertices, dots, splitting, both arrow styles, duplicates, self-loops, merging, open circles, the example drawing, editing, analysis, routes, layouts and sketch fitting.
   - It was also driven with simulated pointer strokes off-screen, from drawing through to editing (connect, drag, select edge). Real finger drawing on a phone or tablet has not been tried yet.
+- **Directions, paint, import, and playing games on your own graph** (`CustomBoards.kt`).
+  - **Directions:** "One-way mode" makes new lines point from the first vertex tapped to the second. "Make all one-way" and "Make all two-way" convert every line. Per-line direction is still set on the selected line.
+  - **Paint tool:** six paints plus an eraser. Clashing lines are dashed red, and the analysis reports whether the colouring is proper and how many paints it uses.
+    - "Auto-color" calls `bestColoring`. Up to 14 vertices it runs an exact backtracking search with symmetry breaking, so the result is the chromatic number. Larger graphs use the DSatur greedy rule. It returns null if more than 6 paints would be needed. Paint survives moves and layouts.
+  - **Text import/export:** `graphToText` and `parseGraphText` use the format `A-B 3, B>C, A<D, E`. `-` is two-way, `>`/`->` and `<`/`<-` are one-way, an optional weight follows (≤ 99), and a lone letter is an isolated vertex. Parsing is case-insensitive, and errors are worded for children. Imported graphs get a circle layout, then Tidy.
+  - **Play a game on your graph:** the editor lists all 11 games, with START/GOAL pickers.
+    - `gameProblem` returns a plain-language reason when a game can't use the graph:
+      - not enough vertices, START = GOAL, or GOAL unreachable (respecting arrows only for games that keep them)
+      - 0–1 BFS weights other than 0/1
+      - SCC without one-way lines
+      - Shannon with a direct START–GOAL line (an instant win)
+      - Planar with more than 10 vertices or a non-planar graph
+      - Dots and Boxes always, since it needs a grid
+    - `gameNote` explains when arrows are treated as two-way. The lessons for BFS, 0–1 BFS, Dijkstra and SCC keep directions, as does the Shortest-Path Challenge. Biconnected, Coloring, Shannon, Kayles and Planar treat lines as two-way.
+    - `playableBoard` renumbers the vertices so START is A and GOAL is the last letter, which every game assumes. It converts two-way lines into two arrows when a game keeps directions, and passes the learner's positions through.
+    - `GraphLesson`, `RouteLesson`, `ComponentLesson`, `GraphDuelScreen` and each duel accept an optional `PlayableBoard`. On a custom board, "New board" becomes "Play again" and the Dots setting is hidden. Planar starts from the learner's layout, rearranged only if lines cross.
+    - In a directed Shortest-Path Challenge, sabotaging a two-way road raises both of its arrows for one point, and the price is shown once.
+  - The drawn graph, undo history and START/GOAL live in `SketchSession`, held by `GraphGamesScreen`, so "Back to my graph" returns to exactly where you were.
+  - `CustomBoardsTest` covers text round-trips and errors, one-way helpers, paint preservation, exact chromatic numbers (cycles, K4, Petersen = 3, K7 → null), greedy colouring, renumbering, direction handling, every refusal reason, two-way sabotage, and that every allowed game builds a valid starting state.
+  - The editor, Dijkstra and Coloring on a custom graph, the Path duel, and clash highlighting were rendered off-screen and inspected. Real touch play has not been tried.
 - Run `./gradlew :features:graph:desktopTest` (Windows: `.\gradlew.bat :features:graph:desktopTest`).
 
 This module should not depend on `composeApp` or the other feature modules. Add a public screen or data API here, then wire it into `composeApp` navigation.

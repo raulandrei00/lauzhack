@@ -5,8 +5,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** A vertex of a user-made graph, at normalized board coordinates (0..1 on both axes). */
-data class DrawnVertex(val x: Float, val y: Float)
+/** A vertex of a user-made graph, at normalized board coordinates (0..1 on both axes), with an optional paint index. */
+data class DrawnVertex(val x: Float, val y: Float, val color: Int? = null)
 
 /** An edge of a user-made graph. If [directed], it points from [a] to [b]. */
 data class DrawnEdge(val a: Int, val b: Int, val weight: Int = 1, val directed: Boolean = false) {
@@ -24,7 +24,7 @@ data class DrawnGraph(val vertices: List<DrawnVertex> = emptyList(), val edges: 
         if (size >= MAX_VERTICES) this else copy(vertices = vertices + DrawnVertex(x.coerceIn(0f, 1f), y.coerceIn(0f, 1f)))
 
     fun moveVertex(i: Int, x: Float, y: Float): DrawnGraph =
-        copy(vertices = vertices.mapIndexed { k, v -> if (k == i) DrawnVertex(x.coerceIn(0f, 1f), y.coerceIn(0f, 1f)) else v })
+        copy(vertices = vertices.mapIndexed { k, v -> if (k == i) v.copy(x = x.coerceIn(0f, 1f), y = y.coerceIn(0f, 1f)) else v })
 
     /** Removes a vertex and its edges; later vertices shift down one letter. */
     fun removeVertex(i: Int): DrawnGraph = copy(
@@ -33,9 +33,24 @@ data class DrawnGraph(val vertices: List<DrawnVertex> = emptyList(), val edges: 
             it.copy(a = if (it.a > i) it.a - 1 else it.a, b = if (it.b > i) it.b - 1 else it.b)
         })
 
-    fun addEdge(u: Int, v: Int): DrawnGraph =
+    /** Adds u-v; with [oneWay] it points from u to v. */
+    fun addEdge(u: Int, v: Int, oneWay: Boolean = false): DrawnGraph =
         if (u == v || u !in vertices.indices || v !in vertices.indices || edgeIndex(u, v) >= 0) this
-        else copy(edges = edges + DrawnEdge(u, v))
+        else copy(edges = edges + DrawnEdge(u, v, directed = oneWay))
+
+    fun allOneWay(): DrawnGraph = copy(edges = edges.map { it.copy(directed = true) })
+    fun allTwoWay(): DrawnGraph = copy(edges = edges.map { it.copy(directed = false) })
+
+    /** Paints vertex [i]; null removes the paint. */
+    fun paint(i: Int, color: Int?): DrawnGraph = copy(vertices = vertices.mapIndexed { k, v -> if (k == i) v.copy(color = color) else v })
+    fun clearPaint(): DrawnGraph = copy(vertices = vertices.map { it.copy(color = null) })
+    fun withColoring(colors: List<Int>): DrawnGraph = copy(vertices = vertices.mapIndexed { k, v -> v.copy(color = colors.getOrNull(k)) })
+
+    /** Indices of edges whose two ends have the same paint (direction doesn't matter for coloring). */
+    fun colorClashes(): List<Int> = edges.indices.filter { k ->
+        val c = vertices[edges[k].a].color
+        c != null && c == vertices[edges[k].b].color
+    }
 
     fun removeEdge(i: Int): DrawnGraph = copy(edges = edges.filterIndexed { k, _ -> k != i })
 
@@ -163,7 +178,7 @@ fun cheapestRoute(g: DrawnGraph, from: Int, to: Int): Pair<List<Int>, Int>? {
 /** Vertices evenly spaced on a circle. */
 fun circleArrangement(g: DrawnGraph): DrawnGraph = g.copy(vertices = List(g.size) { i ->
     val a = PI + 2 * PI * i / g.size.coerceAtLeast(1)
-    DrawnVertex((.5 + .5 * cos(a)).toFloat(), (.5 + .5 * sin(a)).toFloat())
+    g.vertices[i].copy(x = (.5 + .5 * cos(a)).toFloat(), y = (.5 + .5 * sin(a)).toFloat())
 })
 
 /**
@@ -205,5 +220,5 @@ fun tidyArrangement(g: DrawnGraph, iterations: Int = 200): DrawnGraph {
     val minX = x.min(); val maxX = x.max(); val minY = y.min(); val maxY = y.max()
     val sx = (maxX - minX).takeIf { it > 1e-4f } ?: 1f
     val sy = (maxY - minY).takeIf { it > 1e-4f } ?: 1f
-    return g.copy(vertices = List(n) { DrawnVertex(((x[it] - minX) / sx).coerceIn(0f, 1f), ((y[it] - minY) / sy).coerceIn(0f, 1f)) })
+    return g.copy(vertices = List(n) { g.vertices[it].copy(x = ((x[it] - minX) / sx).coerceIn(0f, 1f), y = ((y[it] - minY) / sy).coerceIn(0f, 1f)) })
 }

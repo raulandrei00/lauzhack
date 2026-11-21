@@ -81,6 +81,9 @@ internal fun gridLayout(columns: Int, rows: Int): List<Offset> = List(columns * 
 
 internal fun layoutFor(size: Int) = if (size == 6) sixNodeLayout else circleLayout(size)
 
+/** Vertex size that keeps bigger boards readable. */
+internal fun boardRadius(size: Int) = when { size > 12 -> 17.dp; size > 6 -> 20.dp; else -> 26.dp }
+
 // ---------- Board model ----------
 
 internal data class NodeLook(

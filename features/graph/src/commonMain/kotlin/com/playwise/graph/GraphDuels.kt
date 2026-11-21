@@ -92,7 +92,10 @@ data class DuelState(
     }
     fun raiseCost(index: Int): DuelState {
         if (kind != DuelKind.PATH || routing || result != null || budget == 0 || index !in graph.edges.indices) return this
-        return copy(budget = budget-1, graph = graph.copy(edges = graph.edges.mapIndexed { i,e -> if (i == index) e.copy(weight = e.weight+1) else e }))
+        // In a directed board a two-way road is two arrows; raising the road raises both.
+        val road = graph.edges[index]
+        fun sameRoad(e: GraphEdge) = e == road || (graph.directed && e.from == road.to && e.to == road.from && e.weight == road.weight)
+        return copy(budget = budget-1, graph = graph.copy(edges = graph.edges.map { e -> if (sameRoad(e)) e.copy(weight = e.weight+1) else e }))
     }
     fun lockRoads() = if (kind == DuelKind.PATH && !routing && result == null) copy(routing = true, turn = 1) else this
     fun travel(node: Int): DuelState {

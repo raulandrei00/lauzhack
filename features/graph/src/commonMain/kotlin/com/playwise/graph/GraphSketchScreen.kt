@@ -42,22 +42,58 @@ private enum class Tool(val title: String, val help: String) {
     MOVE("Move & connect", "Drag a vertex to move it. Tap two vertices to connect them. Tap a line to change it."),
     ADD("Add vertex", "Tap an empty spot to add a vertex there."),
     ERASE("Eraser", "Tap a vertex or a line to remove it."),
+    PAINT("Paint", "Pick a paint below, then tap vertices to color them. Joined vertices should get different colors."),
+}
+
+/** The learner's graph and drawing. Lives above the screen so it survives leaving to play a game. */
+class SketchSession {
+    var strokes by mutableStateOf(listOf<List<Pt>>())
+    var boardDp by mutableStateOf(400f to 300f)
+    var graph by mutableStateOf<DrawnGraph?>(null)
+    var history by mutableStateOf(listOf<DrawnGraph>())
+    var start by mutableStateOf(0)
+    var goal by mutableStateOf<Int?>(null)
 }
 
 /** Draw a graph by hand, let the app recognize it, then edit and explore the clean version. */
 @Composable
-fun GraphSketchScreen() {
-    var strokes by remember { mutableStateOf(listOf<List<Pt>>()) }
-    var boardDp by remember { mutableStateOf(400f to 300f) }
-    var graph by remember { mutableStateOf<DrawnGraph?>(null) }
-    val current = graph
+fun GraphSketchScreen(session: SketchSession, onPlay: (GameChoice, PlayableBoard) -> Unit) {
+    val current = session.graph
+    fun open(g: DrawnGraph) { session.history = emptyList(); session.start = 0; session.goal = null; session.graph = g }
     Text("Draw your own graph", fontSize = 28.sp, fontWeight = FontWeight.Bold)
     if (current == null) {
-        SketchPad(strokes, onStrokes = { strokes = it }, onSize = { boardDp = it },
-            onConvert = { result -> graph = DrawnGraph.fromSketch(result, boardDp.first, boardDp.second) },
-            onStartEmpty = { graph = DrawnGraph() })
+        SketchPad(session.strokes, onStrokes = { session.strokes = it }, onSize = { session.boardDp = it },
+            onConvert = { result -> open(DrawnGraph.fromSketch(result, session.boardDp.first, session.boardDp.second)) },
+            onStartEmpty = { open(DrawnGraph()) })
+        ImportBox(onImport = ::open)
     } else {
-        GraphEditor(current, onChange = { graph = it }, onBackToDrawing = { graph = null })
+        GraphEditor(session, current, onChange = { session.graph = it }, onBackToDrawing = { session.graph = null }, onPlay = onPlay)
+    }
+}
+
+/** Type or paste a graph as text, e.g. "A-B 3, B>C". */
+@Composable
+private fun ImportBox(onImport: (DrawnGraph) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    TextButton(onClick = { open = !open }) { Text(if (open) "Hide text import" else "Import a graph from text") }
+    if (open) Surface(color = Color(0xFF1C2742), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Write lines between letters: A-B is a two-way line, A>B is one-way, and a number after it is the weight. A lone letter is a vertex with no lines.", color = Muted)
+            OutlinedTextField(value = text, onValueChange = { text = it; error = "" }, modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("A-B 3, B>C, C-A, D") }, minLines = 2)
+            if (error.isNotEmpty()) Text(error, color = Warn)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    when (val r = parseGraphText(text)) {
+                        is ParseResult.Ok -> onImport(r.graph)
+                        is ParseResult.Error -> error = r.message
+                    }
+                }) { Text("Import") }
+                OutlinedButton(onClick = { text = "A-B 4, A-C 1, C-B 2, B-D 1, C-D 6, D>E 3" ; error = "" }) { Text("Fill in an example") }
+            }
+        }
     }
 }
 
@@ -186,8 +222,10 @@ private fun HowItWorks() {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun GraphEditor(graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBackToDrawing: () -> Unit) {
-    var history by remember { mutableStateOf(listOf<DrawnGraph>()) }
+private fun GraphEditor(session: SketchSession, graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBackToDrawing: () -> Unit,
+                        onPlay: (GameChoice, PlayableBoard) -> Unit) {
+    var oneWayMode by remember { mutableStateOf(false) }
+    var paint by remember { mutableStateOf<Int?>(0) }
     var tool by remember { mutableStateOf(Tool.MOVE) }
     var selVertex by remember { mutableStateOf<Int?>(null) }
     var selEdge by remember { mutableStateOf<Int?>(null) }
@@ -199,32 +237,56 @@ private fun GraphEditor(graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBac
 
     fun commit(next: DrawnGraph) {
         if (next == graph) return
-        history = (history + graph).takeLast(50)
+        session.history = (session.history + graph).takeLast(50)
         onChange(next)
     }
     fun clearSelection() { selVertex = null; selEdge = null; dragging = null }
     fun forgetVertex() { routeFrom = null; routeTo = null; clearSelection() }
 
     TurnBanner(Accent, "Your graph, cleaned up", tool.help)
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Tool.entries.forEach { t ->
             FilterChip(selected = tool == t, onClick = { tool = t; clearSelection(); message = "" }, label = { Text(t.title) })
         }
+    }
+    if (tool == Tool.PAINT) {
+        PaintPicker(Paints.size, paint) { paint = it; message = "" }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = paint == null, onClick = { paint = null }, label = { Text("No paint (eraser)") })
+            OutlinedButton(enabled = graph.size > 0, onClick = {
+                val best = bestColoring(graph)
+                if (best == null) message = "This graph needs more than ${Paints.size} paints. Try removing some lines."
+                else {
+                    commit(graph.withColoring(best.colors))
+                    message = if (best.exact) "Colored with ${best.count} paint(s). That's the fewest possible: the chromatic number is ${best.count}."
+                        else "Colored with ${best.count} paints using a quick rule (DSatur). Fewer might be possible."
+                }
+            }) { Text("Auto-color (fewest paints)") }
+            OutlinedButton(enabled = graph.vertices.any { it.color != null }, onClick = { commit(graph.clearPaint()); message = "Paint removed." }) { Text("Clear paint") }
+        }
+    } else FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.Center) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(checked = oneWayMode, onCheckedChange = { oneWayMode = it })
+            Text("  One-way mode: new lines point from the first vertex you tap to the second")
+        }
+        OutlinedButton(enabled = graph.edges.any { !it.directed }, onClick = { commit(graph.allOneWay()); oneWayMode = true; message = "Every line is now one-way (pointing the way it was drawn). Tap a line to flip it." }) { Text("Make all one-way") }
+        OutlinedButton(enabled = graph.anyDirected, onClick = { commit(graph.allTwoWay()); oneWayMode = false; message = "Every line is now two-way." }) { Text("Make all two-way") }
     }
 
     val route = if (routeFrom != null && routeTo != null) cheapestRoute(graph, routeFrom!!, routeTo!!) else null
     val routeSteps = route?.first?.zipWithNext()?.map { (a, b) -> minOf(a, b) to maxOf(a, b) }?.toSet() ?: emptySet()
     val weightsMatter = showWeights || graph.edges.any { it.weight != 1 }
     val many = graph.size > 12
+    val clashes = graph.colorClashes().toSet()
 
     TapBoard(
         positions = graph.vertices.map { Offset(it.x, it.y) },
         nodes = graph.vertices.indices.map { i ->
-            val canConnect = tool != Tool.ERASE && selVertex != null && selVertex != i && graph.edgeIndex(selVertex!!, i) < 0
+            val canConnect = tool != Tool.ERASE && tool != Tool.PAINT && selVertex != null && selVertex != i && graph.edgeIndex(selVertex!!, i) < 0
             NodeLook(
                 label = nodeLabel(i),
-                fill = when { i == selVertex -> Accent; route?.first?.contains(i) == true -> Color(0xFF4DD4C6); else -> NodeIdle },
-                textColor = if (i == selVertex || route?.first?.contains(i) == true) Color.Black else Color.White,
+                fill = when { i == selVertex -> Accent; route?.first?.contains(i) == true -> Color(0xFF4DD4C6); else -> graph.vertices[i].color?.let { Paints[it] } ?: NodeIdle },
+                textColor = if (i == selVertex || route?.first?.contains(i) == true || graph.vertices[i].color != null) Color.Black else Color.White,
                 ring = if (i == selVertex) Color.White else null,
                 pulse = if (canConnect) Accent else null,
                 crossed = false,
@@ -235,8 +297,9 @@ private fun GraphEditor(graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBac
         edges = graph.edges.mapIndexed { k, e ->
             val onRoute = (minOf(e.a, e.b) to maxOf(e.a, e.b)) in routeSteps
             EdgeLook(e.a, e.b,
-                color = when { k == selEdge -> Color.White; onRoute -> Color(0xFF4DD4C6); else -> EdgeIdle },
-                width = if (k == selEdge || onRoute) 6.dp else 3.dp,
+                color = when { k == selEdge -> Color.White; onRoute -> Color(0xFF4DD4C6); k in clashes -> Danger; else -> EdgeIdle },
+                width = if (k == selEdge || onRoute || k in clashes) 6.dp else 3.dp,
+                dashed = k in clashes,
                 arrow = e.directed,
                 label = if (weightsMatter) "${e.weight}" else null,
                 tappable = true)
@@ -248,13 +311,28 @@ private fun GraphEditor(graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBac
             message = ""
             when {
                 tool == Tool.ERASE -> { commit(graph.removeVertex(i)); forgetVertex(); message = "Removed ${nodeLabel(i)}. Later letters moved up one." }
+                tool == Tool.PAINT -> {
+                    val next = graph.paint(i, paint)
+                    commit(next)
+                    val clash = paint?.let { p -> graph.undirectedNeighbors(i).firstOrNull { graph.vertices[it].color == p } }
+                    message = when {
+                        paint == null -> "Removed the paint from ${nodeLabel(i)}."
+                        clash != null -> "Careful: ${nodeLabel(i)} and ${nodeLabel(clash)} are joined and both ${PaintNames[paint!!]}. The dashed red line shows the clash."
+                        next.vertices.all { it.color != null } && next.colorClashes().isEmpty() -> "Every vertex is painted and no joined vertices share a color: a proper coloring with ${next.vertices.mapNotNull { it.color }.toSet().size} paints!"
+                        else -> ""
+                    }
+                }
                 selVertex == null -> { selVertex = i; selEdge = null; message = "Picked ${nodeLabel(i)}. Tap a glowing vertex to connect it, or drag to move." }
                 selVertex == i -> selVertex = null
                 else -> {
                     val a = selVertex!!
                     val existing = graph.edgeIndex(a, i)
                     if (existing >= 0) { selEdge = existing; selVertex = null }
-                    else { commit(graph.addEdge(a, i)); message = "Connected ${nodeLabel(a)} and ${nodeLabel(i)}."; selVertex = null }
+                    else {
+                        commit(graph.addEdge(a, i, oneWay = oneWayMode))
+                        message = if (oneWayMode) "Added a one-way line ${nodeLabel(a)} → ${nodeLabel(i)}." else "Connected ${nodeLabel(a)} and ${nodeLabel(i)}."
+                        selVertex = null
+                    }
                 }
             }
         },
@@ -264,7 +342,7 @@ private fun GraphEditor(graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBac
             else { selEdge = k; selVertex = null; message = "" }
         },
         onNodeDrag = if (tool == Tool.ERASE) null else { i, p ->
-            if (dragging != i) { history = (history + graph).takeLast(50); dragging = i }
+            if (dragging != i) { session.history = (session.history + graph).takeLast(50); dragging = i }
             onChange(graph.moveVertex(i, p.x, p.y))
         },
         onEmptyTap = { p ->
@@ -315,8 +393,8 @@ private fun GraphEditor(graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBac
     }
 
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-        OutlinedButton(enabled = history.isNotEmpty(), onClick = {
-            onChange(history.last()); history = history.dropLast(1); forgetVertex(); message = "Undone."
+        OutlinedButton(enabled = session.history.isNotEmpty(), onClick = {
+            onChange(session.history.last()); session.history = session.history.dropLast(1); forgetVertex(); message = "Undone."
         }) { Text("Undo") }
         OutlinedButton(enabled = graph.size > 1, onClick = { commit(tidyArrangement(graph)); message = "Tidied: lines pull like springs, vertices push apart." }) { Text("Tidy up") }
         OutlinedButton(enabled = graph.size > 2, onClick = { commit(circleArrangement(graph)) }) { Text("Circle") }
@@ -326,8 +404,10 @@ private fun GraphEditor(graph: DrawnGraph, onChange: (DrawnGraph) -> Unit, onBac
     if (weightsMatter && !showWeights && graph.edges.any { it.weight != 1 })
         Text("Weights stay visible while some line costs more or less than 1.", color = Muted, fontSize = 13.sp)
 
+    PlayPanel(session, graph, onPlay)
     RouteFinder(graph, routeFrom, routeTo, route, onFrom = { routeFrom = it }, onTo = { routeTo = it })
     FactsPanel(graph)
+    ShareBox(graph)
     var textList by remember { mutableStateOf(false) }
     TextButton(onClick = { textList = !textList }) { Text(if (textList) "Hide edge list" else "Show edges as text") }
     if (textList) Text(if (graph.edges.isEmpty()) "No edges yet." else graph.edges.joinToString("   |   ") {
@@ -361,7 +441,7 @@ private fun RouteFinder(graph: DrawnGraph, from: Int?, to: Int?, route: Pair<Lis
 
 @Composable
 private fun FactsPanel(graph: DrawnGraph) {
-    val f = remember(graph.size, graph.edges) { analyze(graph) }
+    val f = remember(graph) { analyze(graph) }
     fun group(s: Set<Int>) = s.sorted().joinToString("") { nodeLabel(it) }
     Surface(color = Color(0xFF1C2742), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -381,6 +461,81 @@ private fun FactsPanel(graph: DrawnGraph) {
                 else "No: there is a cycle of odd length, so neighbors would clash with only 2 colors.")
             if (f.directed) Fact("One-way groups", if (f.strongGroups.size == 1) "Every vertex can reach every other following the arrows: strongly connected."
                 else "Groups where everyone can reach everyone (SCC): ${f.strongGroups.joinToString("  ") { "{${group(it)}}" }}.")
+            val painted = graph.vertices.count { it.color != null }
+            if (painted > 0) {
+                val clashes = graph.colorClashes()
+                val used = graph.vertices.mapNotNull { it.color }.toSet().size
+                Fact("Your coloring", when {
+                    clashes.isNotEmpty() -> "${clashes.size} clash(es): " + clashes.joinToString { "${nodeLabel(graph.edges[it].a)}–${nodeLabel(graph.edges[it].b)}" } + " join vertices of the same color."
+                    painted < graph.size -> "$painted of ${graph.size} vertices painted, no clashes so far."
+                    else -> "Proper: no joined vertices share a color. It uses $used paint(s)."
+                })
+            }
+        }
+    }
+}
+
+// ---------------- Play a game on this graph ----------------
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlayPanel(session: SketchSession, graph: DrawnGraph, onPlay: (GameChoice, PlayableBoard) -> Unit) {
+    if (graph.size == 0) return
+    val start = session.start.coerceIn(0, graph.size - 1)
+    val goal = (session.goal ?: (graph.size - 1)).coerceIn(0, graph.size - 1)
+    var open by remember { mutableStateOf(true) }
+    Surface(color = Color(0xFF243A2A), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("PLAY A GAME ON YOUR GRAPH", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton(onClick = { open = !open }) { Text(if (open) "Hide" else "Show") }
+            }
+            if (!open) return@Column
+            if (graph.size >= 2) {
+                Text("Route games go from START to GOAL:", color = Muted)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("START", color = Warn, modifier = Modifier.align(Alignment.CenterVertically))
+                    (0 until graph.size).forEach { v -> FilterChip(selected = start == v, onClick = { session.start = v }, label = { Text(nodeLabel(v)) }) }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("GOAL ", color = Warn, modifier = Modifier.align(Alignment.CenterVertically))
+                    (0 until graph.size).forEach { v -> FilterChip(selected = goal == v, onClick = { session.goal = v }, label = { Text(nodeLabel(v)) }) }
+                }
+                if (start != 0 || goal != graph.size - 1) Text(
+                    "In route games the letters are renumbered so START is A and GOAL is ${nodeLabel(graph.size - 1)}, like on every other board.",
+                    color = Muted, fontSize = 13.sp)
+            }
+            allGameChoices.forEach { choice ->
+                val problem = gameProblem(graph, start, goal, choice)
+                val note = if (problem == null) gameNote(graph, choice) else null
+                Surface(color = Color(0xFF1C2742), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(choice.title, fontWeight = FontWeight.Bold, color = if (problem == null) Color.White else Muted)
+                            Text(if (choice is GameChoice.Lesson) "Lesson · solo" else "Two players", color = Muted, fontSize = 12.sp)
+                            problem?.let { Text(it, color = Warn, fontSize = 13.sp) }
+                            note?.let { Text(it, color = Muted, fontSize = 13.sp) }
+                        }
+                        Button(enabled = problem == null, onClick = { onPlay(choice, playableBoard(graph, start, goal, choice)) }) { Text("Play") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------- Share as text ----------------
+
+@Composable
+private fun ShareBox(graph: DrawnGraph) {
+    var open by remember { mutableStateOf(false) }
+    TextButton(onClick = { open = !open }) { Text(if (open) "Hide text version" else "Share as text (copy it, import it later)") }
+    if (open) Surface(color = Color(0xFF1C2742), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text("Select and copy this, then use \"Import a graph from text\" on the drawing page:", color = Muted, fontSize = 13.sp)
+            androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(if (graph.size == 0) "(empty)" else graphToText(graph), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

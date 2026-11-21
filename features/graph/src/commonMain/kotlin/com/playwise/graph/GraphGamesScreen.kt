@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -19,16 +20,26 @@ fun GraphGamesScreen(onBack: () -> Unit) {
     var completed by remember { mutableStateOf(setOf<GraphTopic>()) }
     var primer by remember { mutableStateOf(false) }
     var sketch by remember { mutableStateOf(false) }
+    val session = remember { SketchSession() }
+    var custom by remember { mutableStateOf<Pair<GameChoice, PlayableBoard>?>(null) }
     val atHub = topic == null && duel == null && !primer && !sketch
-    OutlinedButton(onClick = { if (atHub) onBack() else { topic = null; duel = null; primer = false; sketch = false } }) {
+    OutlinedButton(onClick = { if (atHub) onBack() else { topic = null; duel = null; primer = false; sketch = false; custom = null } }) {
         Text(if (atHub) "Back to learning paths" else "All graph games")
     }
     Text("Graph adventures", fontSize = 32.sp)
     Text("${completed.size} / 5 topics explored this session", color = Muted)
     Spacer(Modifier.height(16.dp))
     val active = topic
-    if (sketch) {
-        GraphSketchScreen()
+    val playing = custom
+    if (sketch && playing != null) {
+        Button(onClick = { custom = null }) { Text("← Back to my graph") }
+        Spacer(Modifier.height(8.dp))
+        when (val choice = playing.first) {
+            is GameChoice.Lesson -> key(playing) { GraphLesson(choice.topic, onComplete = { completed = completed + choice.topic }, board = playing.second) }
+            is GameChoice.Duel -> key(playing) { GraphDuelScreen(choice.kind, board = playing.second) }
+        }
+    } else if (sketch) {
+        GraphSketchScreen(session, onPlay = { choice, board -> custom = choice to board })
     } else if (primer) {
         GraphPrimerScreen()
     } else if (duel != null) {
@@ -75,18 +86,20 @@ fun GraphGamesScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun GraphLesson(topic: GraphTopic, onComplete: () -> Unit) {
+private fun GraphLesson(topic: GraphTopic, onComplete: () -> Unit, board: PlayableBoard? = null) {
     var level by remember { mutableIntStateOf(0) }
     Text(topic.title, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-    Text("Board ${level + 1}", color = Muted)
+    Text(if (board != null) "On your own graph" else "Board ${level + 1}", color = Muted)
     key(level) {
-        val graph = remember { randomLesson(topic) }
+        val graph = remember { board?.graph ?: randomLesson(topic) }
+        val positions = board?.positions ?: layoutFor(graph.size)
+        val custom = board != null
         var theory by remember { mutableStateOf(false) }
         val next: () -> Unit = { level++ }
         if (topic in listOf(GraphTopic.BFS, GraphTopic.DIJKSTRA, GraphTopic.ZERO_ONE))
-            RouteLesson(topic, graph, onWin = { onComplete(); theory = true }, onStruggle = { theory = true }, onNext = next)
+            RouteLesson(topic, graph, positions, custom, onWin = { onComplete(); theory = true }, onStruggle = { theory = true }, onNext = next)
         else
-            ComponentLesson(topic, graph, onWin = { onComplete(); theory = true }, onStruggle = { theory = true }, onNext = next)
+            ComponentLesson(topic, graph, positions, custom, onWin = { onComplete(); theory = true }, onStruggle = { theory = true }, onNext = next)
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = { theory = !theory }) { Text(if (theory) "Hide lesson" else "Theory & implementation") }
         if (theory) {
@@ -98,7 +111,7 @@ private fun GraphLesson(topic: GraphTopic, onComplete: () -> Unit) {
 
 /** Shortest-route puzzles: tap neighboring dots to walk from A (START) to F (GOAL). */
 @Composable
-private fun RouteLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> Unit, onStruggle: () -> Unit, onNext: () -> Unit) {
+private fun RouteLesson(topic: GraphTopic, graph: LessonGraph, positions: List<Offset>, custom: Boolean, onWin: () -> Unit, onStruggle: () -> Unit, onNext: () -> Unit) {
     val goal = graph.size - 1
     val optimum = remember { shortestDistances(graph, 0, topic).last() }
     var path by remember { mutableStateOf(listOf(0)) }
@@ -146,7 +159,9 @@ private fun RouteLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> Unit
 
     val steps = path.zipWithNext().map { (a, b) -> minOf(a, b) to maxOf(a, b) }.toSet()
     TapBoard(
-        positions = sixNodeLayout,
+        positions = positions,
+        aspectRatio = if (custom) 1.3f else 1.45f,
+        nodeRadius = boardRadius(graph.size),
         nodes = (0 until graph.size).map { i ->
             NodeLook(
                 label = nodeLabel(i),
@@ -164,7 +179,10 @@ private fun RouteLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> Unit
                 color = when { onPath -> Accent; topic == GraphTopic.ZERO_ONE && e.weight == 0 -> Color(0xFF4DD4C6); else -> EdgeIdle },
                 width = if (onPath) 7.dp else 3.dp,
                 dashed = topic == GraphTopic.ZERO_ONE && e.weight == 0 && !onPath,
-                label = when (topic) { GraphTopic.BFS -> null; GraphTopic.ZERO_ONE -> if (e.weight == 0) "FREE" else "1"; else -> "${e.weight}" },
+                arrow = graph.directed,
+                // A two-way road in a directed graph is two arrows; label only one of them.
+                label = if (graph.directed && e.from > e.to && graph.edges.any { it.from == e.to && it.to == e.from && it.weight == e.weight }) null
+                    else when (topic) { GraphTopic.BFS -> null; GraphTopic.ZERO_ONE -> if (e.weight == 0) "FREE" else "1"; else -> "${e.weight}" },
                 labelColor = if (topic == GraphTopic.ZERO_ONE && e.weight == 0) Color(0xFF4DD4C6) else Color.White,
             )
         },
@@ -173,7 +191,7 @@ private fun RouteLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> Unit
     Text("Route: ${path.joinToString(" → ") { nodeLabel(it) }}   •   ${costWord.replaceFirstChar { it.uppercase() }}: $cost",
         fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
     Feedback(message, tone)
-    if (won) ResultCard("Route complete!", "Best $costWord: $optimum. Ready for a harder board?", Accent, "Next board", onNext)
+    if (won) ResultCard("Route complete!", "Best $costWord: $optimum." + if (custom) "" else " Ready for a harder board?", Accent, if (custom) "Play again" else "Next board", onNext)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(enabled = !won && path.size > 1, onClick = { tap(here) }) { Text("Step back") }
         OutlinedButton(onClick = { path = listOf(0); won = false; message = "Back at START. Try again!"; tone = Tone.INFO }) { Text("Start over") }
@@ -182,13 +200,13 @@ private fun RouteLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> Unit
             tone = Tone.INFO
         }) { Text("Hint") }
     }
-    OutlinedButton(onClick = onNext) { Text("New board") }
+    if (!custom) OutlinedButton(onClick = onNext) { Text("New board") }
     RoadListToggle(graph, showWeights = topic != GraphTopic.BFS)
 }
 
 /** Component puzzles: tap dots to select a group, then claim it. */
 @Composable
-private fun ComponentLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> Unit, onStruggle: () -> Unit, onNext: () -> Unit) {
+private fun ComponentLesson(topic: GraphTopic, graph: LessonGraph, positions: List<Offset>, custom: Boolean, onWin: () -> Unit, onStruggle: () -> Unit, onNext: () -> Unit) {
     val answers = remember { if (topic == GraphTopic.SCC) stronglyConnectedComponents(graph) else biconnectedComponents(graph) }
     var selection by remember { mutableStateOf(setOf<Int>()) }
     var claimed by remember { mutableStateOf(listOf<Set<Int>>()) }
@@ -221,7 +239,9 @@ private fun ComponentLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> 
     }
 
     TapBoard(
-        positions = sixNodeLayout,
+        positions = positions,
+        aspectRatio = if (custom) 1.3f else 1.45f,
+        nodeRadius = boardRadius(graph.size),
         nodes = (0 until graph.size).map { i ->
             val groups = claimed.indices.filter { i in claimed[it] }
             val selected = i in selection
@@ -259,7 +279,7 @@ private fun ComponentLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> 
         }
     }
     Feedback(message, tone)
-    if (won) ResultCard("Network mapped!", "You found all ${answers.size} groups.", Accent, "Next board", onNext)
+    if (won) ResultCard("Network mapped!", "You found all ${answers.size} groups.", Accent, if (custom) "Play again" else "Next board", onNext)
     else Button(enabled = selection.isNotEmpty(), onClick = ::claim, modifier = Modifier.fillMaxWidth().height(56.dp)) {
         Text(if (selection.isEmpty()) "Tap dots to pick a group" else "Claim group ${groupName(selection)}", fontSize = 18.sp)
     }
@@ -272,6 +292,6 @@ private fun ComponentLesson(topic: GraphTopic, graph: LessonGraph, onWin: () -> 
             tone = Tone.INFO
         }) { Text("Hint") }
     }
-    OutlinedButton(onClick = onNext) { Text("New board") }
+    if (!custom) OutlinedButton(onClick = onNext) { Text("New board") }
     RoadListToggle(graph, showWeights = false)
 }

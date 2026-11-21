@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.sp
 private fun playerName(p: Int) = "Player ${p + 1}"
 
 @Composable
-fun GraphDuelScreen(kind: DuelKind) {
+fun GraphDuelScreen(kind: DuelKind, board: PlayableBoard? = null) {
     var reset by remember { mutableIntStateOf(0) }
     var options by remember(kind) { mutableStateOf(DuelOptions()) }
     var draft by remember(kind) { mutableStateOf(options) }
@@ -35,7 +35,7 @@ fun GraphDuelScreen(kind: DuelKind) {
                 OutlinedButton(onClick = { change((value + 1).coerceAtMost(max)) }, enabled = value < max) { Text("+") }
             }
         }
-        if (kind != DuelKind.BOXES) StepSetting("Dots", draft.nodes,
+        if (kind != DuelKind.BOXES && board == null) StepSetting("Dots", draft.nodes,
             if (kind == DuelKind.SHANNON || kind == DuelKind.PATH) 4 else 2, 10) { draft = draft.copy(nodes = it) }
         if (kind == DuelKind.COLORING || kind == DuelKind.PLANAR)
             StepSetting("Paints", draft.paints, 1, 6) { draft = draft.copy(paints = it) }
@@ -50,15 +50,15 @@ fun GraphDuelScreen(kind: DuelKind) {
     val again: () -> Unit = { reset++ }
     key(reset, kind) {
         when (kind) {
-            DuelKind.PLANAR -> PlanarDuel(options, again)
-            DuelKind.COLORING -> ColoringDuel(options, again)
-            DuelKind.SHANNON -> ShannonDuel(options, again)
-            DuelKind.KAYLES -> KaylesDuel(options, again)
-            DuelKind.PATH -> PathDuel(options, again)
+            DuelKind.PLANAR -> PlanarDuel(options, again, board)
+            DuelKind.COLORING -> ColoringDuel(options, again, board)
+            DuelKind.SHANNON -> ShannonDuel(options, again, board)
+            DuelKind.KAYLES -> KaylesDuel(options, again, board)
+            DuelKind.PATH -> PathDuel(options, again, board)
             DuelKind.BOXES -> BoxesDuel(options, again)
         }
     }
-    OutlinedButton(onClick = again) { Text("New random game") }
+    OutlinedButton(onClick = again) { Text(if (board != null) "Play again" else "New random game") }
     var explain by remember(kind) { mutableStateOf(false) }
     OutlinedButton(onClick = { explain = !explain }) { Text("${if (explain) "Hide" else "Show"} the mathematics & strategy") }
     if (explain) TeachingGuideView(kind.guide)
@@ -80,8 +80,8 @@ private fun GameOver(result: String, onAgain: () -> Unit) {
 // ---------------- Graph Coloring Duel ----------------
 
 @Composable
-private fun ColoringDuel(options: DuelOptions, onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.COLORING, options = options)) }
+private fun ColoringDuel(options: DuelOptions, onAgain: () -> Unit, board: PlayableBoard? = null) {
+    var game by remember { mutableStateOf(board?.let { DuelState(DuelKind.COLORING, it.graph, budget = options.budget, paletteSize = options.paints) } ?: randomDuel(DuelKind.COLORING, options = options)) }
     var paint by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
@@ -93,7 +93,7 @@ private fun ColoringDuel(options: DuelOptions, onAgain: () -> Unit) {
         else "Pick a paint, then tap a glowing dot. Try to trap a dot so it can't be painted!")
     PaintPicker(game.paletteSize, paint) { paint = it; message = "" }
     TapBoard(
-        positions = layoutFor(g.size),
+        positions = board?.positions ?: layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             val c = game.colors[u]
             NodeLook(nodeLabel(u),
@@ -105,7 +105,7 @@ private fun ColoringDuel(options: DuelOptions, onAgain: () -> Unit) {
                 crossed = stuck(u))
         },
         edges = g.edges.map { EdgeLook(it.from, it.to) },
-        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        aspectRatio = if (board != null) 1.3f else if (g.size > 6) 1f else 1.45f,
         nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onNodeTap = { u ->
             if (result != null) return@TapBoard
@@ -125,8 +125,8 @@ private fun ColoringDuel(options: DuelOptions, onAgain: () -> Unit) {
 // ---------------- Shannon Switching ----------------
 
 @Composable
-private fun ShannonDuel(options: DuelOptions, onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.SHANNON, options = options)) }
+private fun ShannonDuel(options: DuelOptions, onAgain: () -> Unit, board: PlayableBoard? = null) {
+    var game by remember { mutableStateOf(board?.let { DuelState(DuelKind.SHANNON, it.graph, budget = options.budget, paletteSize = options.paints) } ?: randomDuel(DuelKind.SHANNON, options = options)) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
     val result = game.result
@@ -135,7 +135,7 @@ private fun ShannonDuel(options: DuelOptions, onAgain: () -> Unit) {
         if (game.turn == 0) "Tap a road to lock it (it turns green). Build a locked path from START to GOAL!"
         else "Tap a road to cut it. Stop every path from START to GOAL!")
     TapBoard(
-        positions = layoutFor(g.size),
+        positions = board?.positions ?: layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             val terminal = u == 0 || u == g.size - 1
             NodeLook(nodeLabel(u), fill = if (terminal) Warn else NodeIdle, textColor = if (terminal) Color.Black else Color.White,
@@ -148,7 +148,7 @@ private fun ShannonDuel(options: DuelOptions, onAgain: () -> Unit) {
                 else -> EdgeLook(e.from, e.to, EdgeIdle, 4.dp, tappable = result == null)
             }
         },
-        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        aspectRatio = if (board != null) 1.3f else if (g.size > 6) 1f else 1.45f,
         nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onEdgeTap = { i ->
             game = game.takeEdge(i); message = ""
@@ -161,8 +161,8 @@ private fun ShannonDuel(options: DuelOptions, onAgain: () -> Unit) {
 // ---------------- Node Kayles ----------------
 
 @Composable
-private fun KaylesDuel(options: DuelOptions, onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.KAYLES, options = options)) }
+private fun KaylesDuel(options: DuelOptions, onAgain: () -> Unit, board: PlayableBoard? = null) {
+    var game by remember { mutableStateOf(board?.let { DuelState(DuelKind.KAYLES, it.graph, budget = options.budget, paletteSize = options.paints) } ?: randomDuel(DuelKind.KAYLES, options = options)) }
     var pending by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
@@ -173,7 +173,7 @@ private fun KaylesDuel(options: DuelOptions, onAgain: () -> Unit) {
         else "The crossed dots will vanish. Tap ${nodeLabel(pending!!)} again (or press Remove) to confirm.")
     fun confirm() { pending?.let { game = game.takeNode(it) }; pending = null }
     TapBoard(
-        positions = layoutFor(g.size),
+        positions = board?.positions ?: layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             NodeLook(nodeLabel(u),
                 fill = if (u == pending) PlayerColors[game.turn] else NodeIdle,
@@ -187,7 +187,7 @@ private fun KaylesDuel(options: DuelOptions, onAgain: () -> Unit) {
             EdgeLook(e.from, e.to, if (e.from == pending || e.to == pending) Danger else EdgeIdle,
                 hidden = e.from in game.removed || e.to in game.removed)
         },
-        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        aspectRatio = if (board != null) 1.3f else if (g.size > 6) 1f else 1.45f,
         nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onNodeTap = { u ->
             if (result != null) return@TapBoard
@@ -211,9 +211,10 @@ private fun KaylesDuel(options: DuelOptions, onAgain: () -> Unit) {
 // ---------------- Shortest-Path Challenge ----------------
 
 @Composable
-private fun PathDuel(options: DuelOptions, onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.PATH, options = options)) }
-    var raised by remember { mutableStateOf(mapOf<Int, Int>()) }
+private fun PathDuel(options: DuelOptions, onAgain: () -> Unit, board: PlayableBoard? = null) {
+    var game by remember { mutableStateOf(board?.let { DuelState(DuelKind.PATH, it.graph, budget = options.budget, paletteSize = options.paints) } ?: randomDuel(DuelKind.PATH, options = options)) }
+    // Keyed by road (unordered pair), so both arrows of a two-way road share one count.
+    var raised by remember { mutableStateOf(mapOf<Pair<Int, Int>, Int>()) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
     val goal = g.size - 1
@@ -228,7 +229,7 @@ private fun PathDuel(options: DuelOptions, onAgain: () -> Unit) {
     }
     val steps = game.path.zipWithNext().map { (a, b) -> minOf(a, b) to maxOf(a, b) }.toSet()
     TapBoard(
-        positions = layoutFor(g.size),
+        positions = board?.positions ?: layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             val walked = game.routing && u in game.path
             NodeLook(nodeLabel(u), fill = if (walked) PlayerColors[1] else NodeIdle, textColor = if (walked) Color.Black else Color.White,
@@ -238,14 +239,15 @@ private fun PathDuel(options: DuelOptions, onAgain: () -> Unit) {
         },
         edges = g.edges.mapIndexed { i, e ->
             val onPath = game.routing && (minOf(e.from, e.to) to maxOf(e.from, e.to)) in steps
-            val extra = raised[i] ?: 0
-            EdgeLook(e.from, e.to, color = when { onPath -> PlayerColors[1]; extra > 0 -> Warn; else -> EdgeIdle },
+            val extra = raised[minOf(e.from, e.to) to maxOf(e.from, e.to)] ?: 0
+            val twinLabel = g.directed && e.from > e.to && g.edges.any { it.from == e.to && it.to == e.from }
+            EdgeLook(e.from, e.to, arrow = g.directed, color = when { onPath -> PlayerColors[1]; extra > 0 -> Warn; else -> EdgeIdle },
                 width = if (onPath) 7.dp else 3.dp,
-                label = if (extra > 0) "${e.weight} (+$extra)" else "${e.weight}",
+                label = if (twinLabel) null else if (extra > 0) "${e.weight} (+$extra)" else "${e.weight}",
                 labelColor = if (extra > 0) Warn else Color.White,
                 tappable = !game.routing && game.budget > 0 && result == null)
         },
-        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        aspectRatio = if (board != null) 1.3f else if (g.size > 6) 1f else 1.45f,
         nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onNodeTap = if (!game.routing || result != null) null else { u ->
             message = when {
@@ -256,7 +258,10 @@ private fun PathDuel(options: DuelOptions, onAgain: () -> Unit) {
             }
         },
         onEdgeTap = if (game.routing) null else { i ->
-            if (game.budget > 0) { game = game.raiseCost(i); raised = raised + (i to (raised[i] ?: 0) + 1) }
+            if (game.budget > 0) {
+                val e = g.edges[i]; val road = minOf(e.from, e.to) to maxOf(e.from, e.to)
+                game = game.raiseCost(i); raised = raised + (road to (raised[road] ?: 0) + 1)
+            }
         })
     if (game.routing) Text("Route: ${game.path.joinToString(" → ") { nodeLabel(it) }}   •   Cost: ${routeCost(g, game.path)}",
         fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
@@ -319,11 +324,12 @@ private fun BoxesDuel(options: DuelOptions, onAgain: () -> Unit) {
 // ---------------- Planar Color & Connect ----------------
 
 @Composable
-private fun PlanarDuel(options: DuelOptions, onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(PlanarGame(graph = LessonGraph(options.nodes, emptyList()), paletteSize = options.paints)) }
+private fun PlanarDuel(options: DuelOptions, onAgain: () -> Unit, board: PlayableBoard? = null) {
+    var game by remember { mutableStateOf(board?.let { PlanarGame(graph = it.graph, paletteSize = options.paints) } ?: PlanarGame(graph = LessonGraph(options.nodes, emptyList()), paletteSize = options.paints)) }
     var selected by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf("") }
-    var positions by remember { mutableStateOf(circleLayout(game.graph.size)) }
+    // A custom board starts from the learner's drawing, rearranged only if lines cross.
+    var positions by remember { mutableStateOf(board?.let { b -> runCatching { planarLayout(game.graph, b.positions) }.getOrDefault(b.positions) } ?: circleLayout(game.graph.size)) }
     val g = game.graph
     val winner = game.winner
 
