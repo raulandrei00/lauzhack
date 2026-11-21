@@ -1,6 +1,6 @@
 # Playwise prototype
 
-Playwise is a Kotlin Multiplatform learning app with one shared Compose UI for Android, desktop, and web. The first playable lesson is normal-play Nim. The README lists future graph and probability paths.
+Playwise is a Kotlin Multiplatform learning app with one shared Compose UI for Android, desktop, and web. Play normal-play Nim and five graph lessons. Probability lessons remain planned.
 
 ## Run
 
@@ -19,3 +19,7 @@ On macOS/Linux, replace `.\gradlew.bat` with `sh ./gradlew`. Android's `installD
 Click a pile, choose how many stones to remove, and take your turn. The last player to take a stone wins. **Noob** chooses a random legal move. **Intuitive** uses a simple fixed heuristic. **GTO** uses Nim XOR: when possible it leaves the pile XOR at zero. The strategy card under the board explains the opening move.
 
 Run rules tests with `:composeApp:desktopTest`.
+
+## Graph games
+
+Open **Graphs** from the home screen for Dijkstra, BFS, 0–1 BFS, biconnected components, and SCC. Each has three boards, hints, answer feedback, theory, and implementation pseudocode. Choose nodes with the labeled buttons below the diagram; use Check delivery or Claim component to submit. See [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md) for rules, architecture, setup, tests, and extension guidance.

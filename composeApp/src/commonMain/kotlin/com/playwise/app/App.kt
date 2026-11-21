@@ -47,7 +47,7 @@ private val PanelLight = Color(0xFF24304D)
 private val Accent = Color(0xFFB7F45B)
 private val Muted = Color(0xFFADB8D0)
 
-private enum class Screen { HOME, NIM }
+private enum class Screen { HOME, NIM, GRAPHS }
 
 @Composable
 fun PlaywiseApp() {
@@ -68,8 +68,11 @@ fun PlaywiseApp() {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 28.dp)) {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                             Column(Modifier.widthIn(max = 1100.dp).fillMaxWidth()) {
-                                if (screen == Screen.HOME) HomeScreen(onStart = { screen = Screen.NIM })
-                                else NimScreen(onBack = { screen = Screen.HOME })
+                                when (screen) {
+                                    Screen.HOME -> HomeScreen(onStart = { screen = Screen.NIM }, onGraphs = { screen = Screen.GRAPHS })
+                                    Screen.NIM -> NimScreen(onBack = { screen = Screen.HOME })
+                                    Screen.GRAPHS -> GraphGamesScreen(onBack = { screen = Screen.HOME })
+                                }
                             }
                         }
                     }
@@ -95,7 +98,7 @@ private fun Header(onHome: () -> Unit, onNim: () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onStart: () -> Unit) {
+private fun HomeScreen(onStart: () -> Unit, onGraphs: () -> Unit) {
     Text("LEARN BY PLAYING", color = Accent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
     Spacer(Modifier.height(12.dp))
     Text("Big ideas start with\na small move.", color = Color.White, fontSize = 42.sp,
@@ -111,13 +114,13 @@ private fun HomeScreen(onStart: () -> Unit) {
         if (maxWidth < 700.dp) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 PathCard("01", "Games & strategy", "Nim is ready to play", true, onStart)
-                PathCard("02", "Graphs", "Coming soon", false, {})
+                PathCard("02", "Graphs", "5 playable graph challenges", true, onGraphs)
                 PathCard("03", "Probability", "Coming soon", false, {})
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.weight(1f)) { PathCard("01", "Games & strategy", "Nim is ready to play", true, onStart) }
-                Box(Modifier.weight(1f)) { PathCard("02", "Graphs", "Coming soon", false, {}) }
+                Box(Modifier.weight(1f)) { PathCard("02", "Graphs", "5 playable graph challenges", true, onGraphs) }
                 Box(Modifier.weight(1f)) { PathCard("03", "Probability", "Coming soon", false, {}) }
             }
         }
