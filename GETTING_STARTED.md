@@ -12,7 +12,7 @@ Install JDK 17 or newer. Android also needs the Android SDK; the browser target 
 .\gradlew.bat :composeApp:installDebug
 ```
 
-On macOS/Linux, replace `.\gradlew.bat` with `./gradlew`. Android's `installDebug` needs a running emulator or attached device. The web build can also be produced with `:composeApp:wasmJsBrowserDistribution`.
+On macOS/Linux, replace `.\gradlew.bat` with `sh ./gradlew`. Android's `installDebug` needs a running emulator or attached device. The web build can also be produced with `:composeApp:wasmJsBrowserDistribution`.
 
 ## Nim
 
