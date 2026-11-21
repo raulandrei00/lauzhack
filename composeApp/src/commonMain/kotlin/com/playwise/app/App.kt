@@ -1,6 +1,6 @@
 package com.playwise.app
 
-import com.playwise.gametheory.NimScreen
+import com.playwise.gametheory.GameTheoryPathScreen
 import com.playwise.graph.GraphGamesScreen
 import com.playwise.probability.ProbabilityGamesScreen
 
@@ -45,7 +45,7 @@ private val Panel = Color(0xFF1C2540)
 private val Accent = Color(0xFFB7F45B)
 private val Muted = Color(0xFFADB8D0)
 
-private enum class Screen { HOME, NIM, GRAPHS, PROBABILITY }
+private enum class Screen { HOME, GAME_THEORY, GRAPHS, PROBABILITY }
 
 @Composable
 fun PlaywiseApp() {
@@ -61,18 +61,18 @@ fun PlaywiseApp() {
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Background) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                Header(onHome = { screen = Screen.HOME }, onNim = { screen = Screen.NIM })
+                Header(onHome = { screen = Screen.HOME }, onGameTheory = { screen = Screen.GAME_THEORY })
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 28.dp)) {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                             Column(Modifier.widthIn(max = 1100.dp).fillMaxWidth()) {
                                 when (screen) {
                                     Screen.HOME -> HomeScreen(
-                                        onStart = { screen = Screen.NIM },
+                                        onStart = { screen = Screen.GAME_THEORY },
                                         onGraphs = { screen = Screen.GRAPHS },
                                         onProbability = { screen = Screen.PROBABILITY }
                                     )
-                                    Screen.NIM -> NimScreen(onBack = { screen = Screen.HOME })
+                                    Screen.GAME_THEORY -> GameTheoryPathScreen(onBack = { screen = Screen.HOME })
                                     Screen.GRAPHS -> GraphGamesScreen(onBack = { screen = Screen.HOME })
                                     Screen.PROBABILITY -> ProbabilityGamesScreen(onBack = { screen = Screen.HOME })
                                 }
@@ -86,7 +86,7 @@ fun PlaywiseApp() {
 }
 
 @Composable
-private fun Header(onHome: () -> Unit, onNim: () -> Unit) {
+private fun Header(onHome: () -> Unit, onGameTheory: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(Panel).padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -96,7 +96,7 @@ private fun Header(onHome: () -> Unit, onNim: () -> Unit) {
             modifier = Modifier.clickable { onHome() })
         Spacer(Modifier.weight(1f))
         Text("Explore", color = Muted, modifier = Modifier.clickable { onHome() }.padding(8.dp))
-        Text("Play Nim", color = Accent, modifier = Modifier.clickable { onNim() }.padding(8.dp))
+        Text("Game theory", color = Accent, modifier = Modifier.clickable { onGameTheory() }.padding(8.dp))
     }
 }
 
@@ -116,13 +116,13 @@ private fun HomeScreen(onStart: () -> Unit, onGraphs: () -> Unit, onProbability:
     BoxWithConstraints {
         if (maxWidth < 700.dp) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                PathCard("01", "Games & strategy", "Nim is ready to play", true, onStart)
+                PathCard("01", "Games & strategy", "Nim journey: levels 1–2", true, onStart)
                 PathCard("02", "Graphs", "6 games + 5 algorithm lessons", true, onGraphs)
                 PathCard("03", "Probability", "Path ready for new games", true, onProbability)
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.weight(1f)) { PathCard("01", "Games & strategy", "Nim is ready to play", true, onStart) }
+                Box(Modifier.weight(1f)) { PathCard("01", "Games & strategy", "Nim journey: levels 1–2", true, onStart) }
                 Box(Modifier.weight(1f)) { PathCard("02", "Graphs", "6 games + 5 algorithm lessons", true, onGraphs) }
                 Box(Modifier.weight(1f)) { PathCard("03", "Probability", "Path ready for new games", true, onProbability) }
             }
@@ -161,7 +161,7 @@ private fun FeatureText(onStart: () -> Unit) {
         Text("Choose one pile. Take any number of stones. Outsmart three kinds of AI.", color = Muted)
         Spacer(Modifier.height(22.dp))
         Button(onClick = onStart, colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-            Text("Play Nim  →", fontWeight = FontWeight.Bold)
+            Text("Explore the Nim journey  →", fontWeight = FontWeight.Bold)
         }
     }
 }

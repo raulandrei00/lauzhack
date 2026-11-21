@@ -14,26 +14,26 @@ class NimTest {
         val match = newNimMatch(BoardLevel.MEDIUM, Difficulty.GTO, alwaysLowest)
         assertEquals(0, match.turns)
         assertEquals(null, match.winner)
-        assertTrue(match.piles.reduce(Int::xor) != 0)
+        assertTrue(xorScore(match.piles, match.piles.map { it.position }.toSet()) != 0)
     }
 
     @Test
     fun boardLevelsHaveTheRequestedSizesAndRanges() {
         val random = Random(42)
         repeat(100) {
-            assertEquals(listOf(3, 4, 5), BoardLevel.BEGINNER.createPiles(random))
+            assertEquals(listOf(3, 4, 5), BoardLevel.BEGINNER.createPiles(random).map { it.stones })
             val easy = BoardLevel.EASY.createPiles(random)
             assertEquals(3, easy.size)
-            assertTrue(easy.all { it in 1..5 })
-            assertTrue(easy.reduce(Int::xor) != 0)
+            assertTrue(easy.all { it.stones in 1..5 })
+            assertTrue(xorScore(easy, easy.map { it.position }.toSet()) != 0)
             val medium = BoardLevel.MEDIUM.createPiles(random)
             assertEquals(4, medium.size)
-            assertTrue(medium.all { it in 1..10 })
-            assertTrue(medium.reduce(Int::xor) != 0)
+            assertTrue(medium.all { it.stones in 1..10 })
+            assertTrue(xorScore(medium, medium.map { it.position }.toSet()) != 0)
             val hard = BoardLevel.HARD.createPiles(random)
             assertTrue(hard.size in 5..10)
-            assertTrue(hard.all { it in 1..64 })
-            assertTrue(hard.reduce(Int::xor) != 0)
+            assertTrue(hard.all { it.stones in 1..64 })
+            assertTrue(xorScore(hard, hard.map { it.position }.toSet()) != 0)
         }
     }
 
@@ -44,7 +44,7 @@ class NimTest {
         assertEquals(Difficulty.GTO, match.difficulty)
         assertEquals(0, match.turns)
         assertEquals(null, match.winner)
-        assertTrue(match.piles.reduce(Int::xor) != 0)
+        assertTrue(xorScore(match.piles, match.piles.map { it.position }.toSet()) != 0)
     }
 
     @Test
@@ -62,9 +62,9 @@ class NimTest {
 
     @Test
     fun takingLastStoneEndsGameBeforeAiMoves() {
-        val result = NimMatch(piles = listOf(0, 1, 0)).play(Move(1, 1))
+        val result = NimMatch(piles = listOf(0, 1, 0).toNimPiles()).play(Move(1, 1))
         assertEquals("You", result.winner)
-        assertEquals(listOf(0, 0, 0), result.piles)
+        assertEquals(listOf(0, 0, 0), result.piles.map { it.stones })
     }
 
     @Test

@@ -44,8 +44,8 @@ These paths are machine-specific, not project requirements. Set these variables 
 | `composeApp/src/commonMain/.../App.kt` | Theme, home navigation, and links to the three feature screens |
 | `features/graph/src/commonMain` | Graph model, rules, random boards, lessons, and two-player screens |
 | `features/graph/src/commonTest` | Graph correctness, duel, and board-generation tests |
-| `features/game-theory/src/commonMain` | Nim rules, AI, and screen |
-| `features/game-theory/src/commonTest` | Nim regression tests |
+| `features/game-theory/src/commonMain` | Game-theory path, Classic Nim, Staircase Nim, shared `NimPile` model, subset XOR calculator, rules, AI, and screens |
+| `features/game-theory/src/commonTest` | Classic and Staircase Nim regression tests |
 | `features/probability/src/commonMain` | Navigable probability path scaffold; future games go here |
 | `composeApp/src/{desktopMain,androidMain,wasmJsMain}` | Thin platform entry points calling the shared app shell |
 

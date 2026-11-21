@@ -16,11 +16,15 @@ On macOS/Linux, replace `.\gradlew.bat` with `sh ./gradlew`. Android's `installD
 
 ## Nim
 
-Click a pile, choose how many stones to remove, and take your turn. The last player to take a stone wins. **Noob** chooses a random legal move. **Intuitive** uses a simple fixed heuristic. **GTO** uses Nim XOR: when possible it leaves the pile XOR at zero. The strategy card under the board explains the opening move.
+Open the game-theory path from the home screen. **Level 1, Classic Nim:** click a pile, choose how many stones to remove, and take your turn. The last player to take a stone wins. **Noob** chooses a random legal move. **Intuitive** uses a simple fixed heuristic. **GTO** uses Nim XOR: when possible it leaves the pile XOR at zero. The strategy card under the board explains the opening move.
 
 Board level is independent of opponent difficulty. **Beginner** uses the fixed 3, 4, 5 board; **Easy** randomizes three piles with 1–5 stones each; **Medium** randomizes four piles with 1–10 stones each; **💀 Hard** randomizes 5–10 piles with 1–64 stones each. Changing level or selecting **New game** starts a fresh board.
 
 The player always takes the first turn. Every starting board has a nonzero pile XOR, so the player has a winning move under optimal play.
+
+**Level 2, Staircase Nim:** move one or more coins from a step to the step directly below it. Coins on step 0 cannot move. The last mover wins. New boards give the first player a winning move. The player-facing lesson asks which subset of steps matters without revealing it. The path also shows suggested later levels as locked previews; they are not games yet. Completing a playable level marks it on the path for the current visit.
+
+Both levels include an XOR calculator below the board. Tap any combination of pile or step cards to see its score; this selection is independent of the pile selected for a move. The score updates as counts change, and a new board clears the calculator selection.
 
 Run Nim rules tests with `:features:game-theory:desktopTest`.
 
