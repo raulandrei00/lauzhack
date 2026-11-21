@@ -49,4 +49,17 @@ class StaircaseNimTest {
             assertEquals(0, oddStepXor(after), "GTO failed for $steps")
         }
     }
+
+    @Test
+    fun multiplayerAlternatesPlayersAndLastSlideWins() {
+        val start = StaircaseMatch(steps = listOf(0, 1, 1).toNimPiles())
+        val afterPlayerOne = start.playMultiplayer(StairMove(2, 1))
+        assertEquals(1, afterPlayerOne.currentPlayer)
+        assertEquals(listOf(0, 2, 0), afterPlayerOne.steps.map { it.stones })
+        assertEquals(null, afterPlayerOne.winner)
+
+        val end = afterPlayerOne.playMultiplayer(StairMove(1, 2))
+        assertEquals("Player 2", end.winner)
+        assertEquals(listOf(2, 0, 0), end.steps.map { it.stones })
+    }
 }

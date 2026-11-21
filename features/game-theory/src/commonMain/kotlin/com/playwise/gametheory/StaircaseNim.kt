@@ -24,7 +24,8 @@ data class StaircaseMatch(
     val difficulty: Difficulty = Difficulty.INTUITIVE,
     val winner: String? = null,
     val lastMove: String = "Your move. Slide coins down one step.",
-    val turns: Int = 0
+    val turns: Int = 0,
+    val currentPlayer: Int = 0
 ) {
     val finished: Boolean get() = winner != null
 
@@ -43,6 +44,21 @@ data class StaircaseMatch(
             lastMove = if (aiWon) "AI made the last move. AI wins."
                 else "You slid ${move.count} from step ${move.step}. AI slid ${reply.count} from step ${reply.step}.",
             turns = turns + 1
+        )
+    }
+
+    fun playMultiplayer(move: StairMove): StaircaseMatch {
+        if (finished || move.step !in 1..steps.lastIndex || move.count !in 1..steps[move.step].stones) return this
+        val player = currentPlayer + 1
+        val nextSteps = moved(steps, move)
+        val won = nextSteps.drop(1).all { it.stones == 0 }
+        return copy(
+            steps = nextSteps,
+            winner = if (won) "Player $player" else null,
+            lastMove = if (won) "Player $player made the last move and wins!"
+                else "Player $player slid ${move.count} from step ${move.step}.",
+            turns = turns + 1,
+            currentPlayer = if (won) currentPlayer else 1 - currentPlayer
         )
     }
 }

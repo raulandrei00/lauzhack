@@ -8,6 +8,8 @@ enum class Difficulty(val title: String, val description: String) {
     GTO("GTO", "Chooses a winning move when one exists")
 }
 
+enum class PlayMode { SINGLE_PLAYER, MULTIPLAYER }
+
 enum class BoardLevel(val title: String, val description: String) {
     BEGINNER("Beginner", "Classic board: 3, 4, 5"),
     EASY("Easy", "3 piles, 1–5 stones each"),
@@ -45,7 +47,8 @@ data class NimMatch(
     val difficulty: Difficulty = Difficulty.INTUITIVE,
     val winner: String? = null,
     val lastMove: String = "Your turn. Pick a pile and remove at least one stone.",
-    val turns: Int = 0
+    val turns: Int = 0,
+    val currentPlayer: Int = 0
 ) {
     val finished: Boolean get() = winner != null
 
@@ -69,6 +72,23 @@ data class NimMatch(
             lastMove = if (aiWon) "AI took the last stone from pile ${reply.pile + 1}. AI wins."
                 else "You took ${move.count} from pile ${move.pile + 1}. AI took ${reply.count} from pile ${reply.pile + 1}.",
             turns = turns + 1
+        )
+    }
+
+    fun playMultiplayer(move: Move): NimMatch {
+        if (finished || move.pile !in piles.indices || move.count !in 1..piles[move.pile].stones) return this
+        val player = currentPlayer + 1
+        val nextPiles = piles.toMutableList().also {
+            it[move.pile] = it[move.pile].copy(stones = it[move.pile].stones - move.count)
+        }
+        val won = nextPiles.all { it.stones == 0 }
+        return copy(
+            piles = nextPiles,
+            winner = if (won) "Player $player" else null,
+            lastMove = if (won) "Player $player took the last stone and wins!"
+                else "Player $player took ${move.count} from pile ${move.pile + 1}.",
+            turns = turns + 1,
+            currentPlayer = if (won) currentPlayer else 1 - currentPlayer
         )
     }
 }

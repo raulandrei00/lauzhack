@@ -142,6 +142,20 @@ internal fun ResultBanner(youWon: Boolean, onAgain: () -> Unit) {
     }
 }
 
+@Composable
+internal fun MultiplayerResultBanner(winner: String, onAgain: () -> Unit) {
+    Surface(color = Good.copy(alpha = .18f), shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth().border(3.dp, Good, RoundedCornerShape(20.dp))) {
+        Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("$winner wins!", color = Good, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text("They made the last legal move.", color = Color.White, modifier = Modifier.padding(vertical = 8.dp))
+            Button(onClick = onAgain, colors = ButtonDefaults.buttonColors(containerColor = Good)) {
+                Text("Play again", color = Background, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+        }
+    }
+}
+
 /** Big confirm button under the board. */
 @Composable
 internal fun ActionButton(text: String, enabled: Boolean, onClick: () -> Unit) {

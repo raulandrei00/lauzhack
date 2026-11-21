@@ -14,6 +14,7 @@ internal fun diffMove(before: List<Int>, after: List<Int>): Move? =
 @Composable
 fun NimScreen(onBack: () -> Unit, onWin: () -> Unit = {}) {
     var match by remember { mutableStateOf(NimMatch()) }
+    var mode by remember { mutableStateOf(PlayMode.SINGLE_PLAYER) }
     var selection by remember { mutableStateOf<Move?>(null) }
     var aiTook by remember { mutableStateOf<Move?>(null) }
     var feedback by remember { mutableStateOf("") }
@@ -27,32 +28,48 @@ fun NimScreen(onBack: () -> Unit, onWin: () -> Unit = {}) {
 
     fun play() {
         val move = selection ?: return
+        val player = match.currentPlayer + 1
         val afterYou = match.piles.map { it.stones }.toMutableList().also { it[move.pile] -= move.count }
-        val next = match.play(move)
-        aiTook = if (next.winner == "You") null else diffMove(afterYou, next.piles.map { it.stones })
+        val next = if (mode == PlayMode.SINGLE_PLAYER) match.play(move) else match.playMultiplayer(move)
+        aiTook = if (mode == PlayMode.MULTIPLAYER || next.winner == "You") null
+            else diffMove(afterYou, next.piles.map { it.stones })
         match = next
         selection = null
         warning = false
-        feedback = "You took ${move.count} from pile ${move.pile + 1}." +
+        feedback = if (mode == PlayMode.MULTIPLAYER)
+            "Player $player took ${move.count} from pile ${move.pile + 1}."
+        else "You took ${move.count} from pile ${move.pile + 1}." +
             (aiTook?.let { " Then the computer took ${it.count} from pile ${it.pile + 1} (red circles)." } ?: "")
-        if (next.winner == "You") onWin()
+        if (next.winner != null && next.winner != "AI") onWin()
     }
 
     LevelHeader(onBack, "Level 1 · Classic Nim", "A tiny game with a surprisingly deep strategy.")
     HowToPlay(listOf(
         "Tap a ball. That ball and every ball to its right turn orange.",
         "Press the orange button to take them. You may only take from ONE pile per turn.",
-        "Then the computer moves. Whoever takes the very last ball wins!",
+        if (mode == PlayMode.SINGLE_PLAYER) "Then the computer moves. Whoever takes the very last ball wins!"
+        else "Pass the device after each move. Whoever takes the very last ball wins!",
     ))
+    Spacer(Modifier.height(14.dp))
+    ChoiceChips("MODE", listOf("Single player", "Multiplayer"), mode.ordinal) {
+        mode = PlayMode.entries[it]
+        newBoard()
+    }
     Spacer(Modifier.height(14.dp))
     ChoiceChips("BOARD", BoardLevel.entries.map { it.title }, match.level.ordinal) { newBoard(BoardLevel.entries[it]) }
     Text(match.level.description, color = Muted)
-    Spacer(Modifier.height(10.dp))
-    OpponentChips(match.difficulty) { match = match.copy(difficulty = it) }
+    if (mode == PlayMode.SINGLE_PLAYER) {
+        Spacer(Modifier.height(10.dp))
+        OpponentChips(match.difficulty) { match = match.copy(difficulty = it) }
+    }
     Spacer(Modifier.height(16.dp))
 
-    if (match.finished) ResultBanner(match.winner == "You") { newBoard() }
-    else GameBanner("Your turn · round ${match.turns + 1}",
+    if (match.finished) {
+        if (mode == PlayMode.MULTIPLAYER) MultiplayerResultBanner(match.winner!!) { newBoard() }
+        else ResultBanner(match.winner == "You") { newBoard() }
+    } else GameBanner(
+        if (mode == PlayMode.MULTIPLAYER) "Player ${match.currentPlayer + 1}'s turn · move ${match.turns + 1}"
+        else "Your turn · round ${match.turns + 1}",
         selection?.let { "Taking ${it.count} from pile ${it.pile + 1} will leave ${match.piles[it.pile].stones - it.count}. Press the button to confirm, or tap another ball." }
             ?: "Tap a ball in any pile to choose how many to take.")
     Spacer(Modifier.height(12.dp))
@@ -90,8 +107,8 @@ fun NimScreen(onBack: () -> Unit, onWin: () -> Unit = {}) {
     if (!match.finished) {
         val (move, winning) = optimalNimMove(match.piles.map { it.stones })
         HintCard(
-            if (winning) "Take ${move.count} from pile ${move.pile + 1}. Then the pile sizes XOR to zero, a losing position for the computer."
-            else "The XOR is already zero: no move forces a win. Take 1 from pile ${move.pile + 1} and hope the computer slips.",
+            if (winning) "Take ${move.count} from pile ${move.pile + 1}. Then the pile sizes XOR to zero, a losing position for the next player."
+            else "The XOR is already zero: no move forces a win. Take 1 from pile ${move.pile + 1} and hope the next player slips.",
             match.piles,
             onShow = { selection = move; feedback = "" })
         Spacer(Modifier.height(16.dp))

@@ -72,4 +72,18 @@ class NimTest {
         val match = NimMatch()
         assertEquals(match, match.play(Move(0, 4)))
     }
+
+    @Test
+    fun multiplayerAlternatesPlayersAndLastMoveWins() {
+        val start = NimMatch(piles = listOf(1, 2).toNimPiles())
+        val afterPlayerOne = start.playMultiplayer(Move(0, 1))
+        assertEquals(1, afterPlayerOne.currentPlayer)
+        assertEquals(null, afterPlayerOne.winner)
+        assertEquals(listOf(0, 2), afterPlayerOne.piles.map { it.stones })
+
+        val end = afterPlayerOne.playMultiplayer(Move(1, 2))
+        assertEquals("Player 2", end.winner)
+        assertEquals(listOf(0, 0), end.piles.map { it.stones })
+        assertEquals(end, end.playMultiplayer(Move(1, 1)))
+    }
 }
