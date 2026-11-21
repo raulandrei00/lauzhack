@@ -18,15 +18,18 @@ fun GraphGamesScreen(onBack: () -> Unit) {
     var duel by remember { mutableStateOf<DuelKind?>(null) }
     var completed by remember { mutableStateOf(setOf<GraphTopic>()) }
     var primer by remember { mutableStateOf(false) }
-    val atHub = topic == null && duel == null && !primer
-    OutlinedButton(onClick = { if (atHub) onBack() else { topic = null; duel = null; primer = false } }) {
+    var sketch by remember { mutableStateOf(false) }
+    val atHub = topic == null && duel == null && !primer && !sketch
+    OutlinedButton(onClick = { if (atHub) onBack() else { topic = null; duel = null; primer = false; sketch = false } }) {
         Text(if (atHub) "Back to learning paths" else "All graph games")
     }
     Text("Graph adventures", fontSize = 32.sp)
     Text("${completed.size} / 5 topics explored this session", color = Muted)
     Spacer(Modifier.height(16.dp))
     val active = topic
-    if (primer) {
+    if (sketch) {
+        GraphSketchScreen()
+    } else if (primer) {
         GraphPrimerScreen()
     } else if (duel != null) {
         key(duel) { GraphDuelScreen(duel!!) }
@@ -37,6 +40,13 @@ fun GraphGamesScreen(onBack: () -> Unit) {
                 Text("Vocabulary, how programs store graphs, a traversal template, and a guide to which algorithm to use when.")
                 Text("Suggested order: basics → BFS → 0–1 BFS → Dijkstra → SCC → Biconnected. Every lesson has a worked example, pseudocode, a quiz and links to further reading.", color = Muted)
                 Button(onClick = { primer = true }) { Text("Open graph basics") }
+            }
+        }
+        Surface(shape = RoundedCornerShape(18.dp), color = Color(0xFF243A2A), modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Column(Modifier.padding(20.dp)) {
+                Text("Draw your own graph", fontSize = 22.sp)
+                Text("Sketch circles and lines with your finger. The app recognizes them and turns them into a neat graph you can move, edit and explore: cheapest routes, cycles, trees and more.")
+                Button(onClick = { sketch = true }) { Text("Start drawing") }
             }
         }
         Text("Two-player games", fontSize = 24.sp)

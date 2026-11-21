@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private enum class PathPage { JOURNEY, NIM, STAIRCASE, TAKE, TWO_GAMES, MEX, CHOCOLATE }
+private enum class PathPage { JOURNEY, PRIMER, NIM, STAIRCASE, TAKE, TWO_GAMES, MEX, CHOCOLATE }
 
 @Composable
 fun GameTheoryPathScreen(onBack: () -> Unit) {
@@ -39,12 +39,23 @@ fun GameTheoryPathScreen(onBack: () -> Unit) {
         PathPage.TWO_GAMES -> TakeScreen(4, onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 4 })
         PathPage.MEX -> TakeScreen(5, onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 5 })
         PathPage.CHOCOLATE -> ChocolateScreen(onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 6 })
+        PathPage.PRIMER -> NimPrimerScreen(onBack = { page = PathPage.JOURNEY })
         PathPage.JOURNEY -> {
             OutlinedButton(onClick = onBack) { Text("Back to learning paths") }
             Spacer(Modifier.height(20.dp))
             Text("The Nim journey", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("One new idea at a time. Play, discover the pattern, then climb to the next game.", color = Muted)
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(20.dp))
+            Surface(shape = RoundedCornerShape(18.dp), color = PanelLight,
+                modifier = Modifier.fillMaxWidth().clickable { page = PathPage.PRIMER }) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("START HERE", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Winning and losing positions", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("The one idea behind every level: a short lesson, a worked example, a quiz and links to learn more.", color = Muted, fontSize = 13.sp)
+                    Text("Open the basics →", color = Accent, fontSize = 13.sp)
+                }
+            }
+            Spacer(Modifier.height(20.dp))
 
             PathLevel(1, "Classic Nim", "Take stones from one pile. Learn to leave XOR zero.",
                 completed = 1 in completed, playable = true, onClick = { page = PathPage.NIM })

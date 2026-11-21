@@ -44,8 +44,8 @@ These paths are machine-specific, not project requirements. Set these variables 
 | `composeApp/src/commonMain/.../App.kt` | Theme, home navigation, and links to the three feature screens |
 | `features/graph/src/commonMain` | Graph model, rules, random boards, lessons, and two-player screens |
 | `features/graph/src/commonTest` | Graph correctness, duel, and board-generation tests |
-| `features/game-theory/src/commonMain` | Game-theory path, Classic Nim, Staircase Nim, shared `NimPile` model, subset XOR calculator, rules, AI, and screens |
-| `features/game-theory/src/commonTest` | Classic and Staircase Nim regression tests |
+| `features/game-theory/src/commonMain` | Six-level Nim journey (Classic, Staircase, Take up to n, Two mini-games, mex, Chocolate). Rules and AI; tap-to-play ball piles (`NimUi.kt`); teaching guides (`NimLearning.kt`, `LearningPanels.kt`), the binary XOR workbench and the Grundy table explorer. Details in `features/game-theory/README.md` |
+| `features/game-theory/src/commonTest` | Nim, Staircase, subtraction-game and Chocolate tests, plus `NimLearningTest`, which checks the worked examples against the game code |
 | `features/probability/src/commonMain` | Navigable probability path scaffold; future games go here |
 | `composeApp/src/{desktopMain,androidMain,wasmJsMain}` | Thin platform entry points calling the shared app shell |
 
@@ -142,6 +142,10 @@ Potential follow-ups: persistent progress, more levels, algorithm-step visualiza
 `GraphLearning.kt` holds pure-data `TeachingGuide`s: `graphPrimer`, `GraphTopic.guide` and `DuelKind.guide`. Each guide has a summary, intuition, vocabulary, a worked example on a small fixed graph, full pseudocode, complexity, a correctness argument, common mistakes, a 3-question self-check, resources and a pointer into the source. `GraphLearningScreen.kt` renders a guide as collapsible sections. The idea and pseudocode sections start open, pseudocode scrolls horizontally, quiz answers are revealed on tap, and links open through `LocalUriHandler` with the URL also shown as text. The hub has a "Graph basics" primer card. Lessons are listed in learning order: BFS, 0–1 BFS, Dijkstra, SCC, Biconnected. The old `theory`/`implementation`/`lesson` enum fields were removed.
 
 `GraphLearningTest` checks that every guide is complete and every link is https, and runs each worked example against the real algorithms. If you edit an example trace, update that test too. The external links were written from knowledge, not fetched, so check them in a browser before a demo. Text is English only.
+
+## Draw your own graph
+
+The Graphs hub has a "Draw your own graph" card that opens `GraphSketchScreen`. Freehand strokes are classified by geometry in `SketchRecognizer`: loops and dots become vertices, lines become edges, and a V-shape or hook makes an edge one-way. The result becomes an editable `DrawnGraph`, drawn with the shared `TapBoard` and analysed with Dijkstra, SCCs, cycles and bipartiteness. A neural network was considered and rejected: no training data, an offline WasmGC/Android target, and the need to explain decisions. Handwritten weights are set by tapping instead. See `features/graph/README.md` for thresholds, tests and limits. Real touch drawing on devices still needs manual testing.
 
 ## Planar Color & Connect
 

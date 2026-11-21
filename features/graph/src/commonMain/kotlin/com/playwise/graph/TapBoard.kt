@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -128,6 +130,10 @@ internal fun TapBoard(
     showLabels: Boolean = true,
     onNodeTap: ((Int) -> Unit)? = null,
     onEdgeTap: ((Int) -> Unit)? = null,
+    /** Editor mode: drag a vertex to a new normalized position. Dragging elsewhere still scrolls the page. */
+    onNodeDrag: ((Int, Offset) -> Unit)? = null,
+    /** Editor mode: a tap on empty board space, in normalized coordinates. */
+    onEmptyTap: ((Offset) -> Unit)? = null,
 ) {
     val measurer = rememberTextMeasurer()
     val pulse by rememberInfiniteTransition().animateFloat(
@@ -135,31 +141,53 @@ internal fun TapBoard(
     )
     val nodeTap by rememberUpdatedState(onNodeTap)
     val edgeTap by rememberUpdatedState(onEdgeTap)
+    val nodeDrag by rememberUpdatedState(onNodeDrag)
+    val emptyTap by rememberUpdatedState(onEmptyTap)
     val currentEdges by rememberUpdatedState(edges)
     val currentNodes by rememberUpdatedState(nodes)
     val currentPositions by rememberUpdatedState(positions)
+    val editor = onNodeDrag != null || onEmptyTap != null
 
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Canvas(
             Modifier.widthIn(max = 620.dp).fillMaxWidth().aspectRatio(aspectRatio)
                 .background(BoardBackground, RoundedCornerShape(20.dp))
-                .pointerInput(Unit) {
-                    detectTapGestures { tap ->
-                        val pad = nodeRadius.toPx() + 26.dp.toPx()
-                        val pts = currentPositions.map { toPx(it, size.width.toFloat(), size.height.toFloat(), pad) }
+                .pointerInput(editor) {
+                    val pad = nodeRadius.toPx() + 26.dp.toPx()
+                    fun points() = currentPositions.map { toPx(it, size.width.toFloat(), size.height.toFloat(), pad) }
+                    fun nodeAt(p: Offset, pts: List<Offset>): Int? {
+                        val hitRadius = maxOf(nodeRadius.toPx() + 12.dp.toPx(), 26.dp.toPx())
+                        return pts.indices.filter { it < currentNodes.size && (pts[it] - p).getDistance() <= hitRadius }
+                            .minByOrNull { (pts[it] - p).getDistance() }
+                    }
+                    fun normalized(p: Offset) = Offset(
+                        ((p.x - pad) / (size.width - 2 * pad)).coerceIn(0f, 1f),
+                        ((p.y - pad) / (size.height - 2 * pad)).coerceIn(0f, 1f))
+                    fun handleTap(tap: Offset) {
+                        val pts = points()
                         val nodeHandler = nodeTap
-                        if (nodeHandler != null) {
-                            val hitRadius = maxOf(nodeRadius.toPx() + 12.dp.toPx(), 26.dp.toPx())
-                            val hit = pts.indices.filter { (pts[it] - tap).getDistance() <= hitRadius }
-                                .minByOrNull { (pts[it] - tap).getDistance() }
-                            if (hit != null && hit < currentNodes.size) { nodeHandler(hit); return@detectTapGestures }
-                        }
-                        val edgeHandler = edgeTap ?: return@detectTapGestures
-                        val hit = currentEdges.indices.filter { currentEdges[it].tappable && !currentEdges[it].hidden }
+                        if (nodeHandler != null) nodeAt(tap, pts)?.let { nodeHandler(it); return }
+                        val edgeHit = currentEdges.indices.filter { currentEdges[it].tappable && !currentEdges[it].hidden }
                             .map { it to segmentDistance(tap, pts[currentEdges[it].from], pts[currentEdges[it].to]) }
                             .filter { it.second <= 22.dp.toPx() }
                             .minByOrNull { it.second }
-                        if (hit != null) edgeHandler(hit.first)
+                        val edgeHandler = edgeTap
+                        if (edgeHit != null && edgeHandler != null) edgeHandler(edgeHit.first)
+                        else emptyTap?.invoke(normalized(tap))
+                    }
+                    if (!editor) detectTapGestures { handleTap(it) }
+                    else awaitEachGesture {
+                        val down = awaitFirstDown()
+                        val grabbed = if (nodeDrag != null) nodeAt(down.position, points()) else null
+                        if (grabbed != null) down.consume()
+                        var moved = false
+                        while (true) {
+                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                            if (moved && grabbed != null) { nodeDrag?.invoke(grabbed, normalized(change.position)); change.consume() }
+                        }
+                        if (!moved) handleTap(down.position)
                     }
                 }
         ) {
