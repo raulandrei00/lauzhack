@@ -10,7 +10,7 @@ This module should not depend on `composeApp` or the other feature modules. Add 
 
 
 plan:
-we want a child in africa to be able to open this game and, level by level, be engaged in more
+we want a kid in africa to be able to open this game and, level by level, be engaged in more
 and more complex nim-games. starting with standard nim, then staircase nim,
 
 we need a few more steps before
