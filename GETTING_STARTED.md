@@ -22,4 +22,8 @@ Run rules tests with `:composeApp:desktopTest`.
 
 ## Graph games
 
+The Graphs screen starts with six **Play together** games: Sprouts, Graph Coloring Duel, Shannon Switching, Node Kayles, Shortest-Path Challenge, and Dots and Boxes. They use local two-player turns on one screen; no account or network is needed. The five solo algorithm lessons are listed below them.
+
+Sprouts: tap an existing dot, tap bends, then tap an endpoint; choose the new-dot bend and commit. Lines cannot cross. The board uses polygonal curves and a concession button, not automatic detection of every possible remaining curve. Shortest-Path Challenge: spend up to five sabotage points, lock the costs, then let the second player construct an optimal route.
+
 Open **Graphs** from the home screen for Dijkstra, BFS, 0–1 BFS, biconnected components, and SCC. Each has three boards, hints, answer feedback, theory, and implementation pseudocode. Choose nodes with the labeled buttons below the diagram; use Check delivery or Claim component to submit. See [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md) for rules, architecture, setup, tests, and extension guidance.

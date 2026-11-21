@@ -18,15 +18,29 @@ private fun groupName(group: Set<Int>) = group.sorted().joinToString(" · ") { n
 @Composable
 fun GraphGamesScreen(onBack: () -> Unit) {
     var topic by remember { mutableStateOf<GraphTopic?>(null) }
+    var duel by remember { mutableStateOf<DuelKind?>(null) }
     var completed by remember { mutableStateOf(setOf<GraphTopic>()) }
-    OutlinedButton(onClick = { if (topic == null) onBack() else topic = null }) {
-        Text(if (topic == null) "Back to learning paths" else "All graph games")
+    OutlinedButton(onClick = { if (topic == null && duel == null) onBack() else { topic = null; duel = null } }) {
+        Text(if (topic == null && duel == null) "Back to learning paths" else "All graph games")
     }
     Text("Graph adventures", fontSize = 32.sp)
     Text("${completed.size} / 5 topics explored this session", color = Color(0xFFADB8D0))
     Spacer(Modifier.height(16.dp))
     val active = topic
-    if (active == null) {
+    if (duel != null) {
+        key(duel) { GraphDuelScreen(duel!!) }
+    } else if (active == null) {
+        Text("Two-player games", fontSize = 24.sp)
+        DuelKind.entries.forEach { game ->
+            Surface(shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                Column(Modifier.padding(20.dp)) {
+                    Text(game.title, fontSize = 22.sp)
+                    Text(game.rules)
+                    Button(onClick = { duel = game }) { Text("Play together") }
+                }
+            }
+        }
+        Text("Algorithm lessons", fontSize = 24.sp)
         GraphTopic.entries.forEach { lesson ->
             Surface(shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                 Column(Modifier.padding(20.dp)) {

@@ -114,13 +114,13 @@ private fun HomeScreen(onStart: () -> Unit, onGraphs: () -> Unit) {
         if (maxWidth < 700.dp) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 PathCard("01", "Games & strategy", "Nim is ready to play", true, onStart)
-                PathCard("02", "Graphs", "5 playable graph challenges", true, onGraphs)
+                PathCard("02", "Graphs", "6 games + 5 algorithm lessons", true, onGraphs)
                 PathCard("03", "Probability", "Coming soon", false, {})
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.weight(1f)) { PathCard("01", "Games & strategy", "Nim is ready to play", true, onStart) }
-                Box(Modifier.weight(1f)) { PathCard("02", "Graphs", "5 playable graph challenges", true, onGraphs) }
+                Box(Modifier.weight(1f)) { PathCard("02", "Graphs", "6 games + 5 algorithm lessons", true, onGraphs) }
                 Box(Modifier.weight(1f)) { PathCard("03", "Probability", "Coming soon", false, {}) }
             }
         }

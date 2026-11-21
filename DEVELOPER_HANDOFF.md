@@ -87,6 +87,35 @@ Verification on 2026-11-21: `:composeApp:desktopTest` and `:composeApp:compileKo
 
 ## Extending safely
 
+## Six local two-player games (2026-11-21 addition)
+
+The Graphs hub now offers six games above the original five algorithm lessons. `GraphDuels.kt` contains immutable game states and pure rule transitions, `GraphDuelScreen.kt` contains the shared Compose UI, and `GraphDuelTest.kt` tests those transitions. `DuelKind` holds rules and teaching text. All games are hot-seat/local two-player, with restart and a mathematics panel; there is no AI opponent or multiplayer service. Leaving a game discards its state. Existing lesson completion statistics do not include these games.
+
+| Game | Exact behavior |
+| --- | --- |
+| Sprouts | Three initial dots, normal-play rules; tap endpoints and bends to create a polygonal curve. Choose any interior bend as the new degree-two dot. Curves snap to existing dots, reject intersection/overlap with old or new lines, reject passing through other dots, and enforce degree <= 3 (loops consume two lives). Board coordinates are normalized; a maximum of 120 draft points bounds geometry work. |
+| Graph Coloring Duel | Three colors. P1 Builder and P2 Blocker both make legal coloring moves. Builder wins on complete coloring, Blocker when no legal move anywhere remains. Recoloring is forbidden. A blocked vertex does not immediately end the game while another legal move exists. |
+| Shannon Switching | P1 Connector claims edges; P2 Cutter deletes only unclaimed edges. Claimed edges are protected. Connectivity is checked both on claimed edges and on all uncut edges, detecting either terminal condition immediately. Terminals A and F. |
+| Node Kayles | Choose a surviving vertex, remove it and its neighbors; last legal move wins. Removed nodes cannot be selected again. |
+| Shortest-Path Challenge | Explicit two-phase variant: P1 increases edge weights by one per point, at most five points total, then voluntarily locks costs (unused budget is allowed). P2 constructs a simple A–F route and can undo before submitting. Matching Dijkstra's final optimum wins for P2; a more costly submitted route wins for P1. The benchmark is not shown before submission. This is not an alternating-move pursuit game. |
+| Dots and Boxes | 3x3 dots / 2x2 squares. Claim edges; completing either or both adjacent squares assigns them to the mover and retains the turn. Otherwise turn changes. All edges taken ends the game; scores determine winner or draw. |
+
+### Sprouts geometry and limitation
+
+Curves are polylines entered by taps, not smooth freehand strokes. Every bend is part of the geometry. Intersection checks allow only isolated shared graph endpoints, not collinear overlap. Each accepted curve is split into two edges at the inserted dot so later curves can legally join it. Tolerances and minimum spacing are for practical screen input; this is not an exact-arithmetic geometry engine. The board is bounded and dots cannot be dragged.
+
+The app does **not** solve planar face reachability to prove that no further Sprouts move exists. The current player must explicitly concede, with a confirmation dialog; the result says "wins by concession". Do not present this as automatic Sprouts endgame detection. A complete solver would need a face representation and legal-curve search, not just a count of remaining lives. Rule reference: https://mathworld.wolfram.com/Sprouts.html ; implementation research: https://arxiv.org/abs/2108.07671 .
+
+### Added verification checklist
+
+After this addition, desktop tests passed (16 total: 8 duel, 5 algorithm, 3 Nim), and `compileKotlinWasmJs` succeeded. A desktop `run` invocation exited successfully without reporting an exception, but no persistent app window was confirmed; interactive visual validation is still required.
+
+Tests cover conflicting colors and both coloring outcomes, Kayles removals and terminal state, Shannon protected edges/path/cut victories, sabotage budget and phase gating, optimal/nonoptimal route results, double-square capture and retained turns, completed Dots and Boxes boards, and Sprouts loops, degree/life counts, crossings, and joining newly inserted dots.
+
+Manual checks still needed on each target: play both roles through terminal states; inspect labels and edge lists at narrow widths; draw several Sprouts loops and close-to-edge curves; check the concession confirmation and restart. Web compilation alone is not browser interaction testing. Android still requires separate SDK/device verification.
+
+### Extension guidance
+
 Add topics through `GraphTopic`, `graphLevel`, UI mode selection, and tests together. Add board cases with independently computed expected answers; do not only test an algorithm against itself. Keep exact maximal-set checking for components. Do not replace biconnected blocks with ordinary connected components. For weighted path changes ensure BFS unit-cost and 0–1 weight constraints remain valid. For arbitrary graphs address overflow and recursion limits.
 
 Potential follow-ups: persistent progress, more levels, algorithm-step visualizations, printable/PDF lessons, localization, light theme, interactive node selection, and device/browser UI verification. These are not implemented promises.
