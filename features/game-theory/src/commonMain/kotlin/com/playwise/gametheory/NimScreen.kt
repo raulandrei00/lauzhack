@@ -1,0 +1,275 @@
+package com.playwise.gametheory
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
+
+private val Background = Color(0xFF101528)
+private val Panel = Color(0xFF1C2540)
+private val PanelLight = Color(0xFF24304D)
+private val Accent = Color(0xFFB7F45B)
+private val Muted = Color(0xFFADB8D0)
+
+@Composable
+private fun StrategyPanel() {
+    Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(22.dp)) {
+            Text("AFTER YOU PLAY", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            Text("The winning idea", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text("XOR the pile sizes. A zero result is a losing position for the player whose turn is next, if the other player responds perfectly.",
+                color = Muted, lineHeight = 21.sp)
+            Spacer(Modifier.height(10.dp))
+            Text("Beginner example: 3 xor 4 xor 5 = 2. Take 2 from pile 1 to leave 1, 4, 5 — their XOR is zero.",
+                color = Color.White, lineHeight = 21.sp)
+            Spacer(Modifier.height(12.dp))
+            Text("Implementation idea: calculate the XOR, then try each legal move until the remaining piles XOR to zero.",
+                color = Accent, fontSize = 13.sp, lineHeight = 19.sp)
+        }
+    }
+}
+
+@Composable
+fun NimScreen(onBack: () -> Unit) {
+    var match by remember { mutableStateOf(NimMatch()) }
+    var selectedPile by remember { mutableIntStateOf(0) }
+    var take by remember { mutableIntStateOf(1) }
+    val reset: (BoardLevel) -> Unit = { level ->
+        match = newNimMatch(level, match.difficulty)
+        selectedPile = 0
+        take = 1
+    }
+    val play: () -> Unit = {
+        match = match.play(Move(selectedPile, take))
+        selectedPile = match.piles.indexOfFirst { it > 0 }.coerceAtLeast(0)
+        take = 1
+    }
+
+    Text("←  All paths", color = Muted, modifier = Modifier.clickable { onBack() })
+    Spacer(Modifier.height(18.dp))
+    Text("Nim", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+    Text("A tiny game with a surprisingly deep strategy.", color = Muted, fontSize = 16.sp)
+    Spacer(Modifier.height(24.dp))
+
+    BoxWithConstraints {
+        if (maxWidth < 760.dp) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                GamePanel(match, selectedPile, take,
+                    onSelect = { selectedPile = it; take = 1 },
+                    onTake = { take = it },
+                    onPlay = play,
+                    onReset = { reset(match.level) }
+                )
+                SidePanel(match.level, match.difficulty,
+                    onLevel = reset,
+                    onDifficulty = { match = match.copy(difficulty = it) })
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Box(Modifier.weight(1.6f)) {
+                    GamePanel(match, selectedPile, take,
+                        onSelect = { selectedPile = it; take = 1 },
+                        onTake = { take = it },
+                        onPlay = play,
+                        onReset = { reset(match.level) }
+                    )
+                }
+                Box(Modifier.weight(1f)) {
+                    SidePanel(match.level, match.difficulty,
+                        onLevel = reset,
+                        onDifficulty = { match = match.copy(difficulty = it) })
+                }
+            }
+        }
+    }
+    Spacer(Modifier.height(20.dp))
+    StrategyPanel()
+}
+
+@Composable
+private fun GamePanel(
+    match: NimMatch, selectedPile: Int, take: Int,
+    onSelect: (Int) -> Unit, onTake: (Int) -> Unit, onPlay: () -> Unit, onReset: () -> Unit
+) {
+    Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(22.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("THE BOARD", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("${match.level.title}  ·  ROUND ${match.turns + 1}", color = Muted, fontSize = 12.sp)
+            }
+            if (!match.finished) {
+                Spacer(Modifier.height(8.dp))
+                Text("YOUR MOVE", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(20.dp))
+            match.piles.forEachIndexed { index, count ->
+                PileRow(index, count, selectedPile == index && !match.finished) { onSelect(index) }
+                Spacer(Modifier.height(10.dp))
+            }
+            Spacer(Modifier.height(16.dp))
+            Surface(shape = RoundedCornerShape(14.dp), color = PanelLight, modifier = Modifier.fillMaxWidth()) {
+                Text(match.lastMove, color = Color.White, modifier = Modifier.padding(14.dp), fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(20.dp))
+            if (!match.finished) {
+                Text("HOW MANY TO TAKE?", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                val maxTake = match.piles[selectedPile]
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = { onTake((take - 1).coerceAtLeast(1)) }, enabled = take > 1) {
+                        Text("−")
+                    }
+                    Text("$take / $maxTake", color = Color.White, fontWeight = FontWeight.Bold)
+                    OutlinedButton(onClick = { onTake((take + 1).coerceAtMost(maxTake)) }, enabled = take < maxTake) {
+                        Text("+")
+                    }
+                }
+                if (maxTake > 1) {
+                    Slider(
+                        value = take.toFloat(),
+                        onValueChange = { onTake(it.roundToInt().coerceIn(1, maxTake)) },
+                        valueRange = 1f..maxTake.toFloat(),
+                        steps = (maxTake - 2).coerceAtLeast(0)
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onPlay, enabled = match.piles[selectedPile] > 0,
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 13.dp)) {
+                    Text("Take $take from pile ${selectedPile + 1}  →", fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Text(if (match.winner == "You") "★  You won!" else "Try again — you can crack it.",
+                    color = Accent, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(onClick = onReset) { Text("New game") }
+        }
+    }
+}
+
+@Composable
+private fun PileRow(index: Int, count: Int, selected: Boolean, onClick: () -> Unit) {
+    val outline = if (selected) Accent else Color.Transparent
+    Surface(
+        color = PanelLight, shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth().border(2.dp, outline, RoundedCornerShape(14.dp))
+            .clickable(enabled = count > 0) { onClick() }
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${index + 1}", color = if (selected) Accent else Muted, fontWeight = FontWeight.Bold,
+                modifier = Modifier.width(30.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically) {
+                repeat(count.coerceAtMost(8)) { Stone(15, if (selected) Accent else Color(0xFF81A7FF)) }
+                if (count > 8) Text("+${count - 8}", color = Muted, fontSize = 12.sp)
+                if (count == 0) Text("Empty", color = Muted, fontSize = 13.sp)
+            }
+            Text("$count", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun Stone(size: Int, color: Color) {
+    Box(Modifier.size(size.dp).background(color, CircleShape))
+}
+
+@Composable
+private fun SidePanel(
+    level: BoardLevel,
+    difficulty: Difficulty,
+    onLevel: (BoardLevel) -> Unit,
+    onDifficulty: (Difficulty) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(22.dp)) {
+                Text("BOARD LEVEL", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(14.dp))
+                BoardLevel.entries.forEach { option ->
+                    val active = option == level
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (active) PanelLight else Color.Transparent,
+                        modifier = Modifier.fillMaxWidth().clickable { onLevel(option) }
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text((if (active) "●  " else "○  ") + option.title,
+                                color = if (active) Accent else Color.White, fontWeight = FontWeight.Bold)
+                            Text(option.description, color = Muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("Changing level starts a new board.", color = Muted, fontSize = 12.sp)
+            }
+        }
+        Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(22.dp)) {
+                Text("YOUR OPPONENT", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(14.dp))
+                Difficulty.entries.forEach { option ->
+                    val active = option == difficulty
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (active) PanelLight else Color.Transparent,
+                        modifier = Modifier.fillMaxWidth().clickable { onDifficulty(option) }
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text((if (active) "●  " else "○  ") + option.title,
+                                color = if (active) Accent else Color.White, fontWeight = FontWeight.Bold)
+                            Text(option.description, color = Muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+        Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(22.dp)) {
+                Text("HOW TO PLAY", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                Text("1. Select one pile.\n2. Remove one or more stones from it.\n3. Whoever takes the last stone wins.",
+                    color = Color.White, lineHeight = 24.sp)
+                Spacer(Modifier.height(16.dp))
+                Text("The secret: if you can leave the bitwise XOR of the pile sizes at zero, your opponent has no winning reply.",
+                    color = Muted, fontSize = 13.sp, lineHeight = 19.sp)
+            }
+        }
+    }
+}

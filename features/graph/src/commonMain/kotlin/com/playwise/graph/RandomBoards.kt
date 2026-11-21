@@ -1,4 +1,4 @@
-package com.playwise.app
+package com.playwise.graph
 
 import kotlin.random.Random
 

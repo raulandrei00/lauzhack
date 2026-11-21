@@ -1,4 +1,4 @@
-package com.playwise.app
+package com.playwise.graph
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

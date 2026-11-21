@@ -18,6 +18,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":features:graph"))
+            implementation(project(":features:game-theory"))
+            implementation(project(":features:probability"))
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)

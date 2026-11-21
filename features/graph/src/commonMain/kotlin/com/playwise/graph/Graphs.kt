@@ -1,4 +1,4 @@
-package com.playwise.app
+package com.playwise.graph
 
 data class GraphEdge(val from: Int, val to: Int, val weight: Int = 1)
 

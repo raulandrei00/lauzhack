@@ -20,7 +20,7 @@ From the repository root in PowerShell:
 
 ```powershell
 .\gradlew.bat :composeApp:run
-.\gradlew.bat :composeApp:desktopTest
+.\gradlew.bat :features:graph:desktopTest :features:game-theory:desktopTest
 .\gradlew.bat :composeApp:compileKotlinWasmJs
 .\gradlew.bat :composeApp:wasmJsBrowserDevelopmentRun
 .\gradlew.bat :composeApp:wasmJsBrowserDistribution
@@ -39,17 +39,17 @@ These paths are machine-specific, not project requirements. Set these variables 
 
 ## Architecture
 
-| File under `composeApp/src` | Responsibility |
+| Module/source | Responsibility |
 | --- | --- |
-| `commonMain/kotlin/com/playwise/app/App.kt` | Theme, home navigation, existing Nim UI; Graphs card enters graph games |
-| `commonMain/kotlin/com/playwise/app/Graphs.kt` | Graph model, topic explanations, algorithms, deterministic board catalog, route-cost validation |
-| `commonMain/kotlin/com/playwise/app/GraphGamesScreen.kt` | Topic picker, board drawing, route/component input, feedback, hints, progress and replay |
-| `commonMain/kotlin/com/playwise/app/Nim.kt` | Existing Nim rules and AI |
-| `commonTest/kotlin/com/playwise/app/GraphTest.kt` | Graph correctness and board validation tests |
-| `commonTest/kotlin/com/playwise/app/NimTest.kt` | Existing Nim regression tests |
-| `desktopMain`, `androidMain`, `wasmJsMain` | Thin platform entry points calling shared Compose UI |
+| `composeApp/src/commonMain/.../App.kt` | Theme, home navigation, and links to the three feature screens |
+| `features/graph/src/commonMain` | Graph model, rules, random boards, lessons, and two-player screens |
+| `features/graph/src/commonTest` | Graph correctness, duel, and board-generation tests |
+| `features/game-theory/src/commonMain` | Nim rules, AI, and screen |
+| `features/game-theory/src/commonTest` | Nim regression tests |
+| `features/probability/src/commonMain` | Navigable probability path scaffold; future games go here |
+| `composeApp/src/{desktopMain,androidMain,wasmJsMain}` | Thin platform entry points calling the shared app shell |
 
-Keep graph logic free of platform APIs. All new functionality lives in commonMain so all targets share the same rules.
+Each feature is an independent Gradle module. Keep rules free of platform APIs and put shared functionality in each module's `commonMain`. Feature modules must not depend on `composeApp` or on each other; add public screens and wire them in the app shell.
 
 ## Rules and invariants
 
@@ -73,7 +73,7 @@ The diagram is illustrative; labeled buttons are the input controls. The text ed
 
 ## Verification and manual checks
 
-Run `:composeApp:desktopTest` and `:composeApp:compileKotlinWasmJs` after shared-code edits. Tests cover shortest paths/unreachable nodes, invalid routes, 0–1 relaxation, directed reachability, articulation overlap, bridges, singleton components, exhaustive optimal-route comparison for all nine route boards, and SCC partition/mutual-reachability checks. Keep Nim tests passing.
+Run `:features:graph:desktopTest`, `:features:game-theory:desktopTest`, and `:composeApp:compileKotlinWasmJs` after shared-code edits. Run `:composeApp:assembleDebug` for Android integration. Tests cover shortest paths/unreachable nodes, invalid routes, 0–1 relaxation, directed reachability, articulation overlap, bridges, singleton components, exhaustive optimal-route comparison for route boards, SCC partition/mutual-reachability checks, graph duels, random boards, and Nim.
 
 Manual smoke test on desktop and a WasmGC browser:
 

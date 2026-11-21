@@ -22,7 +22,7 @@ Board level is independent of opponent difficulty. **Beginner** uses the fixed 3
 
 The player always takes the first turn. Every starting board has a nonzero pile XOR, so the player has a winning move under optimal play.
 
-Run rules tests with `:composeApp:desktopTest`.
+Run Nim rules tests with `:features:game-theory:desktopTest`.
 
 ## Graph games
 
@@ -31,3 +31,15 @@ The Graphs screen starts with six **Play together** games: Sprouts, Graph Colori
 Sprouts: tap an existing dot, tap bends, then tap an endpoint; choose the new-dot bend and commit. Lines cannot cross. The board uses polygonal curves and a concession button, not automatic detection of every possible remaining curve. Shortest-Path Challenge: spend up to five sabotage points, lock the costs, then let the second player construct an optimal route.
 
 Open **Graphs** from the home screen for Dijkstra, BFS, 0–1 BFS, biconnected components, and SCC. Each has random boards, hints, answer feedback, theory, and implementation pseudocode. Choose nodes with the labeled buttons below the diagram; use Check delivery or Claim component to submit. **New random board** generates another puzzle; **Restart** retries the same puzzle. In two-player games, **New random game** resets all state and generates a new board. See [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md) for rules, architecture, setup, tests, and extension guidance.
+
+## Work in parallel
+
+The Gradle modules have separate source and test folders:
+
+| Module | Owns | Tests |
+| --- | --- | --- |
+| `features/graph` | Graph lessons and two-player games | `:features:graph:desktopTest` |
+| `features/game-theory` | Nim and future strategy games | `:features:game-theory:desktopTest` |
+| `features/probability` | Probability path scaffold and future games | Add `commonTest` with the first game |
+
+`composeApp` owns the home screen, navigation, theme, and Android/desktop/web entry points. It depends on all three feature modules. Feature modules do not depend on each other or on `composeApp`, so each person can work in their own module. Run `:composeApp:assembleDebug`, `:composeApp:compileKotlinDesktop`, and `:composeApp:compileKotlinWasmJs` after changing the app integration.

@@ -1,4 +1,4 @@
-package com.playwise.app
+package com.playwise.gametheory
 
 import kotlin.random.Random
 
