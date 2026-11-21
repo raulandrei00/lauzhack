@@ -5,6 +5,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -47,8 +49,8 @@ internal val Warn = Color(0xFFFFAF74)
 internal val PlayerColors = listOf(Color(0xFFB7F45B), Color(0xFF81A7FF))
 
 /** Paints for the coloring games. Names are shown too, so color is never the only cue. */
-internal val Paints = listOf(Color(0xFFFF6B6B), Color(0xFFFFD93D), Color(0xFF4D96FF), Color(0xFFC77DFF))
-internal val PaintNames = listOf("Red", "Yellow", "Blue", "Purple")
+internal val Paints = listOf(Color(0xFFFF6B6B), Color(0xFFFFD93D), Color(0xFF4D96FF), Color(0xFFC77DFF), Color(0xFFFFA24B), Color(0xFF4DD4C6))
+internal val PaintNames = listOf("Red", "Yellow", "Blue", "Purple", "Orange", "Teal")
 
 /** Group colors for claimed components. */
 internal val GroupColors = listOf(Color(0xFF4DD4C6), Color(0xFFFF8FB1), Color(0xFFFFAF74), Color(0xFFB39DFF), Color(0xFF81A7FF), Color(0xFFFFD93D))
@@ -306,7 +308,7 @@ internal fun ResultCard(title: String, detail: String, color: Color, buttonText:
 /** Round paint buttons with the color name written underneath. */
 @Composable
 internal fun PaintPicker(count: Int, selected: Int?, enabled: (Int) -> Boolean = { true }, onPick: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
         (0 until count).forEach { c ->
             val on = enabled(c)
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onPick(c) }) {

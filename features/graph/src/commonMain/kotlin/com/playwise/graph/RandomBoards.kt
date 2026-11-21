@@ -3,31 +3,45 @@ package com.playwise.graph
 import kotlin.random.Random
 
 /** Seedable generators: UI uses Random.Default; tests supply a seed. */
-fun randomNetwork(random: Random, weight: () -> Int = { 1 }, colorable: Boolean = false, cycle: Boolean = false): LessonGraph {
-    val middle = (1..4).shuffled(random)
-    val order = if (cycle) listOf(0)+middle.take(2)+listOf(5)+middle.drop(2) else (0..5).shuffled(random)
+fun randomNetwork(random: Random, weight: () -> Int = { 1 }, colorable: Boolean = false, cycle: Boolean = false,
+                  size: Int = 6, paletteSize: Int = 3): LessonGraph {
+    require(size in 2..10 && paletteSize in 1..6 && (!cycle || size >= 4))
+    val middle = (1 until size - 1).shuffled(random)
+    val order = if (cycle) listOf(0)+middle.take(middle.size / 2)+listOf(size - 1)+middle.drop(middle.size / 2)
+        else (0 until size).shuffled(random)
     val edges = mutableSetOf<Pair<Int,Int>>()
     fun add(a: Int, b: Int) { edges.add(minOf(a,b) to maxOf(a,b)) }
     // A random spanning path ensures reachability and is compatible with the hidden coloring.
     order.zipWithNext().forEach { (a,b) -> add(a,b) }
     if (cycle) add(order.last(),order.first())
-    val colors = order.withIndex().associate { it.value to it.index % 3 }
-    for (a in 0..5) for (b in a+1..5) {
+    val colors = order.withIndex().associate { it.value to it.index % paletteSize }
+    for (a in 0 until size) for (b in a+1 until size) {
         if ((!colorable || colors[a] != colors[b]) && random.nextDouble() < .28) add(a,b)
     }
     // Avoid an immediate one-edge Shannon win.
     if (cycle) {
-        edges.remove(0 to 5)
+        edges.remove(0 to size - 1)
         // Terminals are opposite on the ring, retaining two independent routes.
     }
-    return LessonGraph(6, edges.map { (a,b) -> GraphEdge(a,b,weight()) })
+    return LessonGraph(size, edges.map { (a,b) -> GraphEdge(a,b,weight()) })
 }
 
-fun randomDuel(kind: DuelKind, random: Random = Random.Default): DuelState {
-    if (kind == DuelKind.PLANAR) return DuelState(kind, LessonGraph(random.nextInt(2,7), emptyList()))
+data class DuelOptions(
+    val nodes: Int = 6,
+    val paints: Int = 3,
+    val budget: Int = 5,
+    val columns: Int = 3,
+    val rows: Int = 3
+) {
+    init { require(nodes in 2..10 && paints in 1..6 && budget in 1..10 && columns in 2..6 && rows in 2..6) }
+}
+
+fun randomDuel(kind: DuelKind, random: Random = Random.Default, options: DuelOptions? = null): DuelState {
+    if (kind == DuelKind.PLANAR) return DuelState(kind,
+        LessonGraph(options?.nodes ?: random.nextInt(2,7), emptyList()), paletteSize = options?.paints ?: 3)
     if (kind == DuelKind.BOXES) {
-        val columns = random.nextInt(3,6)
-        val rows = random.nextInt(3,6)
+        val columns = options?.columns ?: random.nextInt(3,6)
+        val rows = options?.rows ?: random.nextInt(3,6)
         val graph = LessonGraph(columns*rows, buildList {
             for (y in 0 until rows) for (x in 0 until columns) {
                 val u = y*columns+x
@@ -39,7 +53,9 @@ fun randomDuel(kind: DuelKind, random: Random = Random.Default): DuelState {
     }
     return DuelState(kind, randomNetwork(random,
         weight = { if (kind == DuelKind.PATH) random.nextInt(1,10) else 1 },
-        colorable = kind == DuelKind.COLORING, cycle = kind == DuelKind.SHANNON))
+        colorable = kind == DuelKind.COLORING, cycle = kind == DuelKind.SHANNON,
+        size = options?.nodes ?: 6, paletteSize = options?.paints ?: 3),
+        budget = options?.budget ?: 5, paletteSize = options?.paints ?: 3)
 }
 
 fun randomLesson(topic: GraphTopic, random: Random = Random.Default): LessonGraph = when (topic) {

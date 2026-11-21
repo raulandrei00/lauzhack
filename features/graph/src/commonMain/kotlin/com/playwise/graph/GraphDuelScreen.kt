@@ -16,20 +16,46 @@ private fun playerName(p: Int) = "Player ${p + 1}"
 @Composable
 fun GraphDuelScreen(kind: DuelKind) {
     var reset by remember { mutableIntStateOf(0) }
+    var options by remember(kind) { mutableStateOf(DuelOptions()) }
+    var draft by remember(kind) { mutableStateOf(options) }
+    var settingsOpen by remember(kind) { mutableStateOf(false) }
     Text(kind.title, fontSize = 28.sp, fontWeight = FontWeight.Bold)
     Text("TWO PLAYERS • Share this screen and take turns", color = MaterialTheme.colorScheme.primary)
     var rules by remember(kind) { mutableStateOf(false) }
     TextButton(onClick = { rules = !rules }) { Text(if (rules) "Hide rules" else "How to play") }
     if (rules) Text(kind.rules, modifier = Modifier.padding(bottom = 8.dp))
+    TextButton(onClick = { settingsOpen = !settingsOpen }) {
+        Text(if (settingsOpen) "Hide settings" else "Settings")
+    }
+    if (settingsOpen) {
+        @Composable fun StepSetting(label: String, value: Int, min: Int, max: Int, change: (Int) -> Unit) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("$label: $value", modifier = Modifier.width(115.dp))
+                OutlinedButton(onClick = { change((value - 1).coerceAtLeast(min)) }, enabled = value > min) { Text("−") }
+                OutlinedButton(onClick = { change((value + 1).coerceAtMost(max)) }, enabled = value < max) { Text("+") }
+            }
+        }
+        if (kind != DuelKind.BOXES) StepSetting("Dots", draft.nodes,
+            if (kind == DuelKind.SHANNON || kind == DuelKind.PATH) 4 else 2, 10) { draft = draft.copy(nodes = it) }
+        if (kind == DuelKind.COLORING || kind == DuelKind.PLANAR)
+            StepSetting("Paints", draft.paints, 1, 6) { draft = draft.copy(paints = it) }
+        if (kind == DuelKind.PATH)
+            StepSetting("Budget", draft.budget, 1, 10) { draft = draft.copy(budget = it) }
+        if (kind == DuelKind.BOXES) {
+            StepSetting("Columns", draft.columns, 2, 6) { draft = draft.copy(columns = it) }
+            StepSetting("Rows", draft.rows, 2, 6) { draft = draft.copy(rows = it) }
+        }
+        Button(onClick = { options = draft; reset++; settingsOpen = false }) { Text("Start with these settings") }
+    }
     val again: () -> Unit = { reset++ }
     key(reset, kind) {
         when (kind) {
-            DuelKind.PLANAR -> PlanarDuel(again)
-            DuelKind.COLORING -> ColoringDuel(again)
-            DuelKind.SHANNON -> ShannonDuel(again)
-            DuelKind.KAYLES -> KaylesDuel(again)
-            DuelKind.PATH -> PathDuel(again)
-            DuelKind.BOXES -> BoxesDuel(again)
+            DuelKind.PLANAR -> PlanarDuel(options, again)
+            DuelKind.COLORING -> ColoringDuel(options, again)
+            DuelKind.SHANNON -> ShannonDuel(options, again)
+            DuelKind.KAYLES -> KaylesDuel(options, again)
+            DuelKind.PATH -> PathDuel(options, again)
+            DuelKind.BOXES -> BoxesDuel(options, again)
         }
     }
     OutlinedButton(onClick = again) { Text("New random game") }
@@ -54,20 +80,20 @@ private fun GameOver(result: String, onAgain: () -> Unit) {
 // ---------------- Graph Coloring Duel ----------------
 
 @Composable
-private fun ColoringDuel(onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.COLORING)) }
+private fun ColoringDuel(options: DuelOptions, onAgain: () -> Unit) {
+    var game by remember { mutableStateOf(randomDuel(DuelKind.COLORING, options = options)) }
     var paint by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
-    fun stuck(u: Int) = u !in game.colors && (0..2).none { game.legalColor(u, it) }
+    fun stuck(u: Int) = u !in game.colors && (0 until game.paletteSize).none { game.legalColor(u, it) }
     val result = game.result
     if (result == null) TurnBanner(PlayerColors[game.turn],
         if (game.turn == 0) "${playerName(0)} · Builder" else "${playerName(1)} · Blocker",
         if (game.turn == 0) "Pick a paint, then tap a glowing dot. Try to paint every dot!"
         else "Pick a paint, then tap a glowing dot. Try to trap a dot so it can't be painted!")
-    PaintPicker(3, paint) { paint = it; message = "" }
+    PaintPicker(game.paletteSize, paint) { paint = it; message = "" }
     TapBoard(
-        positions = sixNodeLayout,
+        positions = layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             val c = game.colors[u]
             NodeLook(nodeLabel(u),
@@ -79,6 +105,8 @@ private fun ColoringDuel(onAgain: () -> Unit) {
                 crossed = stuck(u))
         },
         edges = g.edges.map { EdgeLook(it.from, it.to) },
+        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onNodeTap = { u ->
             if (result != null) return@TapBoard
             message = when {
@@ -97,8 +125,8 @@ private fun ColoringDuel(onAgain: () -> Unit) {
 // ---------------- Shannon Switching ----------------
 
 @Composable
-private fun ShannonDuel(onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.SHANNON)) }
+private fun ShannonDuel(options: DuelOptions, onAgain: () -> Unit) {
+    var game by remember { mutableStateOf(randomDuel(DuelKind.SHANNON, options = options)) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
     val result = game.result
@@ -107,7 +135,7 @@ private fun ShannonDuel(onAgain: () -> Unit) {
         if (game.turn == 0) "Tap a road to lock it (it turns green). Build a locked path from START to GOAL!"
         else "Tap a road to cut it. Stop every path from START to GOAL!")
     TapBoard(
-        positions = sixNodeLayout,
+        positions = layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             val terminal = u == 0 || u == g.size - 1
             NodeLook(nodeLabel(u), fill = if (terminal) Warn else NodeIdle, textColor = if (terminal) Color.Black else Color.White,
@@ -120,6 +148,8 @@ private fun ShannonDuel(onAgain: () -> Unit) {
                 else -> EdgeLook(e.from, e.to, EdgeIdle, 4.dp, tappable = result == null)
             }
         },
+        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onEdgeTap = { i ->
             game = game.takeEdge(i); message = ""
         })
@@ -131,8 +161,8 @@ private fun ShannonDuel(onAgain: () -> Unit) {
 // ---------------- Node Kayles ----------------
 
 @Composable
-private fun KaylesDuel(onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.KAYLES)) }
+private fun KaylesDuel(options: DuelOptions, onAgain: () -> Unit) {
+    var game by remember { mutableStateOf(randomDuel(DuelKind.KAYLES, options = options)) }
     var pending by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
@@ -143,7 +173,7 @@ private fun KaylesDuel(onAgain: () -> Unit) {
         else "The crossed dots will vanish. Tap ${nodeLabel(pending!!)} again (or press Remove) to confirm.")
     fun confirm() { pending?.let { game = game.takeNode(it) }; pending = null }
     TapBoard(
-        positions = sixNodeLayout,
+        positions = layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             NodeLook(nodeLabel(u),
                 fill = if (u == pending) PlayerColors[game.turn] else NodeIdle,
@@ -157,6 +187,8 @@ private fun KaylesDuel(onAgain: () -> Unit) {
             EdgeLook(e.from, e.to, if (e.from == pending || e.to == pending) Danger else EdgeIdle,
                 hidden = e.from in game.removed || e.to in game.removed)
         },
+        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onNodeTap = { u ->
             if (result != null) return@TapBoard
             message = ""
@@ -179,28 +211,28 @@ private fun KaylesDuel(onAgain: () -> Unit) {
 // ---------------- Shortest-Path Challenge ----------------
 
 @Composable
-private fun PathDuel(onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.PATH)) }
+private fun PathDuel(options: DuelOptions, onAgain: () -> Unit) {
+    var game by remember { mutableStateOf(randomDuel(DuelKind.PATH, options = options)) }
     var raised by remember { mutableStateOf(mapOf<Int, Int>()) }
     var message by remember { mutableStateOf("") }
     val g = game.graph
     val goal = g.size - 1
     val result = game.result
     val here = game.path.last()
-    val options = if (game.routing && result == null) g.neighbors(here).map { it.first }.filter { it !in game.path }.toSet() else emptySet()
+    val reachable = if (game.routing && result == null) g.neighbors(here).map { it.first }.filter { it !in game.path }.toSet() else emptySet()
     if (result == null) {
         if (!game.routing) TurnBanner(PlayerColors[0], "${playerName(0)} · Saboteur",
-            "Tap a road to make it 1 more expensive. ${game.budget} of 5 points left. Router, look away!")
+            "Tap a road to make it 1 more expensive. ${game.budget} of ${options.budget} points left. Router, look away!")
         else TurnBanner(PlayerColors[1], "${playerName(1)} · Router",
             "Tap glowing dots to walk from START to GOAL. Find the cheapest route, then press Submit.")
     }
     val steps = game.path.zipWithNext().map { (a, b) -> minOf(a, b) to maxOf(a, b) }.toSet()
     TapBoard(
-        positions = sixNodeLayout,
+        positions = layoutFor(g.size),
         nodes = (0 until g.size).map { u ->
             val walked = game.routing && u in game.path
             NodeLook(nodeLabel(u), fill = if (walked) PlayerColors[1] else NodeIdle, textColor = if (walked) Color.Black else Color.White,
-                pulse = if (u in options) PlayerColors[1] else null,
+                pulse = if (u in reachable) PlayerColors[1] else null,
                 ring = if (game.routing && u == here && result == null) Color.White else null,
                 badge = when (u) { 0 -> "START"; goal -> "GOAL"; else -> null }, badgeColor = Warn)
         },
@@ -213,11 +245,13 @@ private fun PathDuel(onAgain: () -> Unit) {
                 labelColor = if (extra > 0) Warn else Color.White,
                 tappable = !game.routing && game.budget > 0 && result == null)
         },
+        aspectRatio = if (g.size > 6) 1f else 1.45f,
+        nodeRadius = if (g.size > 6) 18.dp else 26.dp,
         onNodeTap = if (!game.routing || result != null) null else { u ->
             message = when {
                 u == here && game.path.size > 1 -> { game = game.copy(path = game.path.dropLast(1)); "" }
                 u in game.path -> "You already walked through ${nodeLabel(u)}. Tap ${nodeLabel(here)} to step back."
-                u !in options -> "No road from ${nodeLabel(here)} to ${nodeLabel(u)}. Pick a glowing dot."
+                u !in reachable -> "No road from ${nodeLabel(here)} to ${nodeLabel(u)}. Pick a glowing dot."
                 else -> { game = game.travel(u); "" }
             }
         },
@@ -244,8 +278,8 @@ private fun PathDuel(onAgain: () -> Unit) {
 // ---------------- Dots and Boxes ----------------
 
 @Composable
-private fun BoxesDuel(onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(randomDuel(DuelKind.BOXES)) }
+private fun BoxesDuel(options: DuelOptions, onAgain: () -> Unit) {
+    var game by remember { mutableStateOf(randomDuel(DuelKind.BOXES, options = options)) }
     val g = game.graph
     val columns = game.gridColumns
     val rows = g.size / columns
@@ -285,37 +319,35 @@ private fun BoxesDuel(onAgain: () -> Unit) {
 // ---------------- Planar Color & Connect ----------------
 
 @Composable
-private fun PlanarDuel(onAgain: () -> Unit) {
-    var game by remember { mutableStateOf(PlanarGame(graph = randomDuel(DuelKind.PLANAR).graph)) }
-    var n by remember { mutableIntStateOf(game.graph.size) }
-    var k by remember { mutableIntStateOf(game.paletteSize) }
+private fun PlanarDuel(options: DuelOptions, onAgain: () -> Unit) {
+    var game by remember { mutableStateOf(PlanarGame(graph = LessonGraph(options.nodes, emptyList()), paletteSize = options.paints)) }
     var selected by remember { mutableStateOf<Int?>(null) }
     var message by remember { mutableStateOf("") }
+    var positions by remember { mutableStateOf(circleLayout(game.graph.size)) }
     val g = game.graph
     val winner = game.winner
-
-    var settings by remember { mutableStateOf(false) }
-    TextButton(onClick = { settings = !settings }) { Text(if (settings) "Hide settings" else "Settings: ${g.size} dots, ${game.paletteSize} paints") }
-    if (settings) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { n = if (n == 6) 2 else n + 1 }) { Text("Dots: $n") }
-            OutlinedButton(onClick = { k = if (k == 4) 1 else k + 1 }) { Text("Paints: $k") }
-            Button(onClick = { game = PlanarGame(LessonGraph(n, emptyList()), k); selected = null; message = "" }) { Text("Start") }
-        }
-    }
 
     if (winner == null) TurnBanner(PlayerColors[game.turn], playerName(game.turn),
         if (selected == null) "Tap a dot to choose it. Then paint it, or tap a second dot to draw a line."
         else "Picked ${nodeLabel(selected!!)}. Tap a paint below, or tap another glowing dot to connect them.")
 
-    fun reasonCantAdd(a: Int, b: Int) = when {
-        g.neighbors(a).any { it.first == b } -> "${nodeLabel(a)} and ${nodeLabel(b)} are already connected."
-        game.colors[a] != null && game.colors[a] == game.colors[b] -> "${nodeLabel(a)} and ${nodeLabel(b)} are both ${PaintNames[game.colors[a]!!]}. Same colors can't be joined."
-        else -> "That line would make crossings impossible to avoid (the graph would stop being planar)."
+    fun reasonCantAdd(a: Int, b: Int): String {
+        val line = "${nodeLabel(a)}–${nodeLabel(b)}"
+        return when (game.edgeRejection(a, b)) {
+            EdgeRejection.ALREADY_CONNECTED -> "$line already exists. Each pair of dots can have only one line."
+            EdgeRejection.SAME_COLOR -> "$line is blocked: both dots are ${PaintNames[game.colors[a]!!]}. Connected dots must have different paints."
+            EdgeRejection.K5 -> "$line would create a K5 pattern: five dots become pairwise connected by separate paths. That graph cannot be drawn without crossings."
+            EdgeRejection.K33 -> "$line would create a K3,3 pattern: two groups of three dots become fully connected. That graph cannot be drawn without crossings."
+            EdgeRejection.EDGE_LIMIT -> "$line would give the graph ${g.edges.size + 1} lines. A planar graph with ${g.size} dots can have at most ${3 * g.size - 6}."
+            EdgeRejection.LOOP -> "A line must join two different dots."
+            EdgeRejection.GAME_OVER -> "The game is over. Start a new game to add lines."
+            EdgeRejection.INVALID_NODE -> "Choose two dots on the board."
+            null -> "This line is allowed."
+        }
     }
 
     TapBoard(
-        positions = circleLayout(g.size),
+        positions = positions,
         nodes = (0 until g.size).map { u ->
             val c = game.colors[u]
             val target = winner == null && selected != null && u != selected && game.canAdd(selected!!, u)
@@ -329,22 +361,33 @@ private fun PlanarDuel(onAgain: () -> Unit) {
                     target -> PlayerColors[game.turn]
                     else -> null
                 },
-                badge = c?.let { PaintNames[it] }, badgeColor = c?.let { Paints[it] } ?: Muted)
+                badge = c?.let { if (g.size >= 8) PaintNames[it].take(1) else PaintNames[it] },
+                badgeColor = c?.let { Paints[it] } ?: Muted)
         },
         edges = g.edges.map { e -> EdgeLook(e.from, e.to, EdgeIdle, 4.dp) },
-        aspectRatio = 1.25f,
+        aspectRatio = 1f,
+        nodeRadius = when { g.size >= 9 -> 12.dp; g.size >= 7 -> 16.dp; else -> 22.dp },
         onNodeTap = { u ->
             if (winner != null) return@TapBoard
             val s = selected
             message = ""
             when {
                 s == null -> selected = u
-                s == u -> selected = null
-                game.canAdd(s, u) -> { game = game.add(s, u); selected = null }
+                s == u -> { selected = null; message = "A line must join two different dots. Selection cleared." }
+                game.canAdd(s, u) -> {
+                    val next = game.add(s, u)
+                    val arranged = runCatching { planarLayout(next.graph, positions) }.getOrNull()
+                    if (arranged == null) message = "This line is legal, but the board could not arrange it clearly. Try another line."
+                    else {
+                        positions = arranged
+                        game = next
+                        selected = null
+                    }
+                }
                 else -> { message = reasonCantAdd(s, u); selected = u }
             }
         })
-    Text("The picture may show crossing lines. That's fine: a line is allowed if the dots could be rearranged so nothing crosses.", fontSize = 13.sp, color = Muted)
+    Text("After each new line, the dots move when needed so the drawing stays crossing-free.", fontSize = 13.sp, color = Muted)
     selected?.let { s ->
         if (winner == null) {
             Text("Paint ${nodeLabel(s)}:", fontSize = 17.sp, modifier = Modifier.padding(top = 8.dp))

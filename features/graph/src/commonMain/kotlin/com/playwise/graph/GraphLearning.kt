@@ -469,9 +469,9 @@ val GraphTopic.guide: TeachingGuide get() = when (this) {
 
 val DuelKind.guide: TeachingGuide get() = when (this) {
     DuelKind.PLANAR -> TeachingGuide(
-        summary = "A graph is planar if it can be drawn with no crossing edges. Kuratowski and Wagner say the only obstacles are K5 and K3,3.",
+        summary = "A graph is planar if it can be drawn with no crossing edges. Its forbidden patterns are subdivisions of K5 and K3,3 (or those graphs as minors).",
         intuition = listOf(
-            "Planarity is about whether some drawing exists, not about the picture on screen. Two lines crossing on the board does not make a move illegal.",
+            "Planarity asks whether some crossing-free drawing exists. After a legal edge is added, the dots are rearranged when needed to show one.",
             "Each move type constrains the other: an edge between two vertices forbids them from sharing a color later, and colored vertices forbid edges between equal colors.",
             "The game ends only when both move types are exhausted. The last player able to move wins.",
         ),
@@ -507,19 +507,26 @@ val DuelKind.guide: TeachingGuide get() = when (this) {
                 if some 3 + 3 split is fully joined: return false           // K3,3
                 return true
 
+            function isPlanarGraph(G):
+                if V <= 6: return isSmallPlanar(G)
+                if E > 3V - 6: return false
+                if a K5 or K3,3 subdivision exists: return false
+                return true
+
             after each accepted move:
                 if the next player has no canColor and no canAdd move:
                     the player who just moved wins
         """.trimIndent(),
         complexity = listOf(
             "The small test checks all 5-vertex subsets, every edge contraction, and all 20 ways to split 6 vertices into 3 + 3, which is instant for V ≤ 6.",
+            "For 7–10 vertices the app searches for K5 and K3,3 subdivisions. The search is exact at this size; it is not designed for large graphs.",
             "General graphs: the Hopcroft-Tarjan and Boyer-Myrvold algorithms test planarity in O(V) time.",
         ),
-        whyItWorks = "Wagner's theorem says G is planar if and only if it has neither K5 nor K3,3 as a minor. With at most 6 vertices there is no room for a subdivided K3,3, and a K5 minor needs at most one contraction, so the small test is exact. The four-colour theorem adds that every planar graph can be properly coloured with 4 colours, but in this game the players choose colours adversarially.",
+        whyItWorks = "Kuratowski's theorem says G is planar if and only if it has neither a K5 nor a K3,3 subdivision. For at most 6 vertices the minor shortcut is exact; for 7–10 vertices the app checks subdivisions directly. The four-colour theorem adds that every planar graph can be properly coloured with 4 colours, but in this game the players choose colours adversarially.",
         pitfalls = listOf(
-            "Rejecting an edge because the schematic drawing crosses. Legality depends on whether some crossing-free drawing exists.",
+            "Judging an edge only from the current positions. A legal edge may require moving the dots.",
             "Assuming the game ends when all vertices are colored. Edges may still be addable.",
-            "Raising the vertex limit above 6 without a general planarity test (see PlanarGame.kt).",
+            "Using the small six-vertex shortcut on larger boards; the larger boards need the subdivision test.",
         ),
         quiz = listOf(
             QuizItem("Five vertices, nine edges, all uncolored. Can a 10th edge ever be added?", "No. Ten edges on 5 vertices is exactly K5, which is not planar."),
@@ -532,7 +539,7 @@ val DuelKind.guide: TeachingGuide get() = when (this) {
             LearningResource("Wikipedia: Four color theorem", "https://en.wikipedia.org/wiki/Four_color_theorem", "Why 4 colors always suffice for planar maps."),
             LearningResource("NetworkX check_planarity", "https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.planarity.check_planarity.html", "A general-purpose implementation to experiment with in Python."),
         ),
-        inThisApp = "isSmallPlanar() and PlanarGame in PlanarGame.kt.",
+        inThisApp = "isPlanarGraph() and PlanarGame in PlanarGame.kt; redraws in PlanarLayout.kt.",
     )
 
     DuelKind.COLORING -> TeachingGuide(

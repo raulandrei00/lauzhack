@@ -4,10 +4,10 @@ package com.playwise.graph
 /** Teaching content for each duel lives in [guide] (GraphLearning.kt). */
 enum class DuelKind(val title: String, val rules: String) {
     PLANAR("Planar Color & Connect", "Start with isolated vertices. On your turn, permanently color one vertex or add one edge. Adjacent colored vertices must differ; added edges must preserve planarity. No legal move loses."),
-    COLORING("Graph Coloring Duel", "Builder (P1) and Blocker (P2) alternate coloring one vertex with one of three colors. Neighbors must differ. Builder wins if all vertices are colored; Blocker wins if no legal coloring move remains."),
-    SHANNON("Shannon Switching", "Connector (P1) claims a free edge; Cutter (P2) deletes a free edge. Claimed edges cannot be cut. Connector wins by joining A to F with claimed edges; Cutter wins when no possible A–F route remains."),
+    COLORING("Graph Coloring Duel", "Builder (P1) and Blocker (P2) alternate coloring one vertex with a selected paint. Neighbors must differ. Builder wins if all vertices are colored; Blocker wins if no legal coloring move remains."),
+    SHANNON("Shannon Switching", "Connector (P1) claims a free edge; Cutter (P2) deletes a free edge. Claimed edges cannot be cut. Connector wins by joining START to GOAL with claimed edges; Cutter wins when no possible route remains."),
     KAYLES("Node Kayles", "Players alternate choosing an available vertex. It and all its neighbors disappear. The player who cannot move loses."),
-    PATH("Shortest-Path Challenge", "Saboteur (P1) spends up to five points increasing road costs, then locks the board. Router (P2) builds an A–F route. Router wins by matching the new optimal cost; otherwise Saboteur wins. This is a two-phase challenge variant."),
+    PATH("Shortest-Path Challenge", "Saboteur (P1) spends the chosen budget increasing road costs, then locks the board. Router (P2) builds a route from START to GOAL. Router wins by matching the new optimal cost; otherwise Saboteur wins. This is a two-phase challenge variant."),
     BOXES("Dots and Boxes", "Claim a free grid edge. Every square you complete earns one point and another turn, including two squares at once. When all edges are taken, the higher score wins.")
 }
 
@@ -33,18 +33,19 @@ data class DuelState(
     val cut: Set<Int> = emptySet(),
     val boxes: Map<Int,Int> = emptyMap(),
     val budget: Int = 5,
+    val paletteSize: Int = 3,
     val routing: Boolean = false,
     val path: List<Int> = listOf(0),
     val result: String? = null,
     val gridColumns: Int = 3
 ) {
-    fun legalColor(node: Int, color: Int) = node in 0 until graph.size && color in 0..2 && node !in colors && graph.neighbors(node).none { colors[it.first] == color }
+    fun legalColor(node: Int, color: Int) = node in 0 until graph.size && color in 0 until paletteSize && node !in colors && graph.neighbors(node).none { colors[it.first] == color }
     fun color(node: Int, color: Int): DuelState {
         if (kind != DuelKind.COLORING || result != null || !legalColor(node, color)) return this
         val next = copy(colors = colors + (node to color), turn = 1-turn)
         return next.copy(result = when {
             next.colors.size == graph.size -> "Builder (P1) wins: every vertex is colored!"
-            (0 until graph.size).none { u -> (0..2).any { next.legalColor(u,it) } } -> "Blocker (P2) wins: no legal coloring move remains."
+            (0 until graph.size).none { u -> (0 until paletteSize).any { next.legalColor(u,it) } } -> "Blocker (P2) wins: no legal coloring move remains."
             else -> null
         })
     }
