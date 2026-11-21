@@ -37,12 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-private val Background = Color(0xFF101528)
-private val Panel = Color(0xFF1C2540)
-private val PanelLight = Color(0xFF24304D)
-private val Accent = Color(0xFFB7F45B)
-private val Muted = Color(0xFFADB8D0)
-
 @Composable
 private fun StrategyPanel() {
     Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
@@ -56,6 +50,12 @@ private fun StrategyPanel() {
             Spacer(Modifier.height(10.dp))
             Text("Beginner example: 3 xor 4 xor 5 = 2. Take 2 from pile 1 to leave 1, 4, 5 — their XOR is zero.",
                 color = Color.White, lineHeight = 21.sp)
+            Spacer(Modifier.height(10.dp))
+            Text("In binary, 3 = 011, 4 = 100, and 5 = 101. XOR marks a bit only when that column has an odd number of 1s, so the score is 010 (2).",
+                color = Muted, lineHeight = 21.sp)
+            Spacer(Modifier.height(12.dp))
+            Text("Use the calculator to select all piles, make a move, and compare the new score. An optimal response aims to restore zero after every opponent move.",
+                color = Color.White, lineHeight = 21.sp)
             Spacer(Modifier.height(12.dp))
             Text("Implementation idea: calculate the XOR, then try each legal move until the remaining piles XOR to zero.",
                 color = Accent, fontSize = 13.sp, lineHeight = 19.sp)
@@ -64,18 +64,21 @@ private fun StrategyPanel() {
 }
 
 @Composable
-fun NimScreen(onBack: () -> Unit) {
+fun NimScreen(onBack: () -> Unit, onWin: () -> Unit = {}) {
     var match by remember { mutableStateOf(NimMatch()) }
     var selectedPile by remember { mutableIntStateOf(0) }
     var take by remember { mutableIntStateOf(1) }
+    var xorSelected by remember { mutableStateOf(emptySet<Int>()) }
     val reset: (BoardLevel) -> Unit = { level ->
         match = newNimMatch(level, match.difficulty)
         selectedPile = 0
         take = 1
+        xorSelected = emptySet()
     }
     val play: () -> Unit = {
         match = match.play(Move(selectedPile, take))
-        selectedPile = match.piles.indexOfFirst { it > 0 }.coerceAtLeast(0)
+        if (match.winner == "You") onWin()
+        selectedPile = match.piles.indexOfFirst { it.stones > 0 }.coerceAtLeast(0)
         take = 1
     }
 
@@ -117,6 +120,15 @@ fun NimScreen(onBack: () -> Unit) {
         }
     }
     Spacer(Modifier.height(20.dp))
+    XorWorkbench(
+        piles = match.piles,
+        selectedPositions = xorSelected,
+        onToggle = { position ->
+            xorSelected = if (position in xorSelected) xorSelected - position else xorSelected + position
+        },
+        labelFor = { "Pile ${it.position + 1}" }
+    )
+    Spacer(Modifier.height(20.dp))
     StrategyPanel()
 }
 
@@ -137,8 +149,8 @@ private fun GamePanel(
                 Text("YOUR MOVE", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(20.dp))
-            match.piles.forEachIndexed { index, count ->
-                PileRow(index, count, selectedPile == index && !match.finished) { onSelect(index) }
+            match.piles.forEachIndexed { index, pile ->
+                PileRow(index, pile.stones, selectedPile == index && !match.finished) { onSelect(index) }
                 Spacer(Modifier.height(10.dp))
             }
             Spacer(Modifier.height(16.dp))
@@ -149,7 +161,7 @@ private fun GamePanel(
             if (!match.finished) {
                 Text("HOW MANY TO TAKE?", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
-                val maxTake = match.piles[selectedPile]
+                val maxTake = match.piles[selectedPile].stones
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(onClick = { onTake((take - 1).coerceAtLeast(1)) }, enabled = take > 1) {
                         Text("−")
@@ -168,7 +180,7 @@ private fun GamePanel(
                     )
                 }
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = onPlay, enabled = match.piles[selectedPile] > 0,
+                Button(onClick = onPlay, enabled = match.piles[selectedPile].stones > 0,
                     colors = ButtonDefaults.buttonColors(containerColor = Accent),
                     contentPadding = PaddingValues(horizontal = 22.dp, vertical = 13.dp)) {
                     Text("Take $take from pile ${selectedPile + 1}  →", fontWeight = FontWeight.Bold)

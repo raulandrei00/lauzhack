@@ -14,12 +14,12 @@ enum class BoardLevel(val title: String, val description: String) {
     MEDIUM("Medium", "4 piles, 1–10 stones each"),
     HARD("💀 Hard", "5–10 piles, 1–64 stones each");
 
-    fun createPiles(random: Random = Random.Default): List<Int> = when (this) {
+    fun createPiles(random: Random = Random.Default): List<NimPile> = (when (this) {
         BEGINNER -> listOf(3, 4, 5)
         EASY -> randomWinningBoard(3, 5, random)
         MEDIUM -> randomWinningBoard(4, 10, random)
         HARD -> randomWinningBoard(random.nextInt(5, 11), 64, random)
-    }
+    }).toNimPiles()
 }
 
 private fun randomWinningBoard(count: Int, maxPileSize: Int, random: Random): List<Int> {
@@ -40,7 +40,7 @@ fun newNimMatch(
 data class Move(val pile: Int, val count: Int)
 
 data class NimMatch(
-    val piles: List<Int> = listOf(3, 4, 5),
+    val piles: List<NimPile> = listOf(3, 4, 5).toNimPiles(),
     val level: BoardLevel = BoardLevel.BEGINNER,
     val difficulty: Difficulty = Difficulty.INTUITIVE,
     val winner: String? = null,
@@ -50,15 +50,19 @@ data class NimMatch(
     val finished: Boolean get() = winner != null
 
     fun play(move: Move, random: Random = Random.Default): NimMatch {
-        if (finished || move.pile !in piles.indices || move.count !in 1..piles[move.pile]) return this
-        val afterHuman = piles.toMutableList().also { it[move.pile] -= move.count }
-        if (afterHuman.all { it == 0 }) {
+        if (finished || move.pile !in piles.indices || move.count !in 1..piles[move.pile].stones) return this
+        val afterHuman = piles.toMutableList().also {
+            it[move.pile] = it[move.pile].copy(stones = it[move.pile].stones - move.count)
+        }
+        if (afterHuman.all { it.stones == 0 }) {
             return copy(piles = afterHuman, winner = "You", lastMove = "You took the last stone. You win!", turns = turns + 1)
         }
 
-        val reply = chooseAiMove(afterHuman, difficulty, random)
-        val afterAi = afterHuman.toMutableList().also { it[reply.pile] -= reply.count }
-        val aiWon = afterAi.all { it == 0 }
+        val reply = chooseAiMove(afterHuman.map { it.stones }, difficulty, random)
+        val afterAi = afterHuman.toMutableList().also {
+            it[reply.pile] = it[reply.pile].copy(stones = it[reply.pile].stones - reply.count)
+        }
+        val aiWon = afterAi.all { it.stones == 0 }
         return copy(
             piles = afterAi,
             winner = if (aiWon) "AI" else null,
