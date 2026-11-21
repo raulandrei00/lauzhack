@@ -4,7 +4,7 @@
 
 Playwise is a Kotlin Multiplatform educational app. Read `README.md`, `GETTING_STARTED.md`, this file, and any future `AGENTS.md` before editing. The repository is `lauzhack/`, not its parent `HACK/`. Check `git status` before making changes; preserve unrelated work. No agent instruction file was present when the graph games were implemented.
 
-The README's Romanian outline asks for a game, theory (potentially an interactive PDF), and implementation per topic. Its five graph topics are now playable: Dijkstra, BFS, 0–1 BFS, vertex-biconnected components, and SCC. Theory and algorithm pseudocode are embedded in each game; there are no generated lesson PDFs. Nim remains available. Other game-theory variants and probability topics remain future work.
+The README's Romanian outline asks for a game, theory (potentially an interactive PDF), and implementation per topic. Its five graph topics are now playable: Dijkstra, BFS, 0–1 BFS, vertex-biconnected components, and SCC. Each lesson and duel has an in-app teaching guide (see "Teaching guides" below); there are no generated lesson PDFs. Nim remains available. Other game-theory variants and probability topics remain future work.
 
 ## Product and source material
 
@@ -65,11 +65,19 @@ Each feature is an independent Gradle module. Keep rules free of platform APIs a
 
 ## Learning interaction and state
 
-Every board has a mission, explicit road list, diagram, node buttons, answer check, restart, and hint. Route games show accumulated cost; component games show claimed groups. After two incorrect checks the theory opens automatically. A hint reveals target route cost or a node in an unclaimed component. Successful answers expose theory and a next-board button. Each topic includes explanatory prose, implementation pseudocode, and complexity.
+Every board has a mission, explicit road list, diagram, node buttons, answer check, restart, and hint. Route games show accumulated cost; component games show claimed groups. After two incorrect checks the theory opens automatically. A hint reveals target route cost or a node in an unclaimed component. Successful answers expose theory and a next-board button. The theory panel is the topic's full teaching guide.
 
 State uses Compose `remember`. Board changes reset the board state; leaving a topic resets its attempts. Topic completion lasts only while the graph screen remains mounted and counts a topic after any successful board. It is not persistent mastery tracking or completion of all three boards. No storage, telemetry, scoring backend, or saved accounts exist.
 
-The diagram is illustrative; labeled buttons are the input controls. The text edge list duplicates visual direction/cost information. The parent screen supplies vertical scrolling. The six-node layout is fixed; extend the layout alongside any graph-size changes. Color is supplemented by text/check marks.
+The board is the input: players tap vertices and edges directly on it (see "Tap-to-play boards" below). A collapsible "Show roads as text" list repeats direction and cost information. The parent screen supplies vertical scrolling. Six-node boards use the fixed skewed-hexagon `sixNodeLayout`; extend the layouts alongside any graph-size changes. Color is always paired with text (paint names, START/GOAL, "locked"/"cut", "shared" badges).
+
+## Tap-to-play boards
+
+`TapBoard.kt` is a shared Canvas component. Callers describe each vertex (`NodeLook`: fill, pulsing "tap me" ring, steady selection ring, badge, red cross, ghost) and each edge (`EdgeLook`: color, width, dashes, arrow, label pill, tappable). Taps are hit-tested in this order: the nearest vertex within about 38 dp, then the nearest tappable edge within 22 dp. Callbacks go through `rememberUpdatedState`, so the lambdas always see current state. Edge-label placement avoids other labels and other roads. The skewed hexagon stops the three long diagonals meeting in one point. `TurnBanner`, `Feedback`, `ResultCard`, `PaintPicker` and `RoadListToggle` are the shared UI pieces.
+
+Interactions: route lessons extend the path by tapping a glowing neighbor; tapping the current dot steps back; reaching F checks automatically. Component lessons toggle dots, then a big Claim button; feedback says "too much" or "can grow". Coloring: pick a paint, then tap a dot; illegal taps explain which neighbor clashes, and dead vertices show "stuck!". Shannon, sabotage and Dots and Boxes are played by tapping roads. Kayles takes two taps: the first previews which dots will vanish, the second confirms. In Planar, tap a dot, then either a paint or a second dot (to draw a line); rejected lines explain why. Game rules and `DuelState`/`PlanarGame` are unchanged.
+
+Verification: the screens were rendered off-screen at phone width (480 px) and checked visually, and simulated presses confirmed vertex, edge and empty-space hit testing. That temporary harness was removed. Real touch on Android and in a browser has not been tried.
 
 ## Verification and manual checks
 
@@ -93,26 +101,19 @@ The Graphs hub now offers six games above the original five algorithm lessons. `
 
 | Game | Exact behavior |
 | --- | --- |
-| Sprouts | Three initial dots, normal-play rules; tap endpoints and bends to create a polygonal curve. Choose any interior bend as the new degree-two dot. Curves snap to existing dots, reject intersection/overlap with old or new lines, reject passing through other dots, and enforce degree <= 3 (loops consume two lives). Board coordinates are normalized; a maximum of 120 draft points bounds geometry work. |
 | Graph Coloring Duel | Three colors. P1 Builder and P2 Blocker both make legal coloring moves. Builder wins on complete coloring, Blocker when no legal move anywhere remains. Recoloring is forbidden. A blocked vertex does not immediately end the game while another legal move exists. |
 | Shannon Switching | P1 Connector claims edges; P2 Cutter deletes only unclaimed edges. Claimed edges are protected. Connectivity is checked both on claimed edges and on all uncut edges, detecting either terminal condition immediately. Terminals A and F. |
 | Node Kayles | Choose a surviving vertex, remove it and its neighbors; last legal move wins. Removed nodes cannot be selected again. |
 | Shortest-Path Challenge | Explicit two-phase variant: P1 increases edge weights by one per point, at most five points total, then voluntarily locks costs (unused budget is allowed). P2 constructs a simple A–F route and can undo before submitting. Matching Dijkstra's final optimum wins for P2; a more costly submitted route wins for P1. The benchmark is not shown before submission. This is not an alternating-move pursuit game. |
 | Dots and Boxes | 3x3 dots / 2x2 squares. Claim edges; completing either or both adjacent squares assigns them to the mover and retains the turn. Otherwise turn changes. All edges taken ends the game; scores determine winner or draw. |
 
-### Sprouts geometry and limitation
-
-Curves are polylines entered by taps, not smooth freehand strokes. Every bend is part of the geometry. Intersection checks allow only isolated shared graph endpoints, not collinear overlap. Each accepted curve is split into two edges at the inserted dot so later curves can legally join it. Tolerances and minimum spacing are for practical screen input; this is not an exact-arithmetic geometry engine. The board is bounded and dots cannot be dragged.
-
-The app does **not** solve planar face reachability to prove that no further Sprouts move exists. The current player must explicitly concede, with a confirmation dialog; the result says "wins by concession". Do not present this as automatic Sprouts endgame detection. A complete solver would need a face representation and legal-curve search, not just a count of remaining lives. Rule reference: https://mathworld.wolfram.com/Sprouts.html ; implementation research: https://arxiv.org/abs/2108.07671 .
-
 ### Added verification checklist
 
 After this addition, desktop tests passed (16 total: 8 duel, 5 algorithm, 3 Nim), and `compileKotlinWasmJs` succeeded. A desktop `run` invocation exited successfully without reporting an exception, but no persistent app window was confirmed; interactive visual validation is still required.
 
-Tests cover conflicting colors and both coloring outcomes, Kayles removals and terminal state, Shannon protected edges/path/cut victories, sabotage budget and phase gating, optimal/nonoptimal route results, double-square capture and retained turns, completed Dots and Boxes boards, and Sprouts loops, degree/life counts, crossings, and joining newly inserted dots.
+Tests cover conflicting colors and both coloring outcomes, Kayles removals and terminal state, Shannon protected edges/path/cut victories, sabotage budget and phase gating, optimal/nonoptimal route results, double-square capture and retained turns, completed Dots and Boxes boards.
 
-Manual checks still needed on each target: play both roles through terminal states; inspect labels and edge lists at narrow widths; draw several Sprouts loops and close-to-edge curves; check the concession confirmation and restart. Web compilation alone is not browser interaction testing. Android still requires separate SDK/device verification.
+Manual checks still needed on each target: play both roles through terminal states; inspect labels and edge lists at narrow widths; check restart. Web compilation alone is not browser interaction testing. Android still requires separate SDK/device verification.
 
 ### Extension guidance
 
@@ -122,7 +123,7 @@ Add topics through `GraphTopic`, `randomLesson`, UI mode selection, and tests to
 
 This section supersedes the original fixed-size/three-board descriptions above. All eleven graph activities generate a board on entry and on their new-board button. Recomposition does not regenerate it. Lesson Restart retains the same puzzle; New random board/Next random board generates another without a three-level limit. Duel New random game creates an entirely fresh state. Random draws can occasionally repeat a previous topology, especially grid sizes.
 
-`RandomBoards.kt` owns generators taking an injectable `kotlin.random.Random`; UI uses `Random.Default`, tests use explicit seeds. Keep `duelGraph`, `graphLevel`, and default `SproutsState` as deterministic rule-test fixtures. Production UI uses `randomDuel`, `randomLesson`, and `randomSprouts` instead.
+`RandomBoards.kt` owns generators taking an injectable `kotlin.random.Random`; UI uses `Random.Default`, tests use explicit seeds. Keep `duelGraph` and `graphLevel` as deterministic rule-test fixtures. Production UI uses `randomDuel` and `randomLesson` instead.
 
 - Coloring: random connected six-node graph generated from a hidden three-color assignment, guaranteeing a possible complete coloring.
 - Shannon: a randomly labeled ring with A/F opposite, plus optional edges; direct A–F edges are excluded. Initial terminals have two independent routes, avoiding an immediate claim win or single-edge cut win.
@@ -130,9 +131,22 @@ This section supersedes the original fixed-size/three-board descriptions above. 
 - Shortest-path duel / route lessons: connected random topology. Weights are random 1–9 for Dijkstra and the duel, 0–1 for 0–1 BFS, exactly one for BFS. Sabotage changes costs after generation.
 - SCC: two randomly sized/labeled strongly connected groups, internal random edges and a forward-only link between groups.
 - Biconnected: two randomly sized/labeled cycle/bridge blocks sharing one articulation vertex. Counts stay beginner-friendly while membership, edges, and block sizes vary.
-- Sprouts: 3–6 dots in randomly selected jittered cells with guaranteed separation; still no initial edges, as required by the game.
 - Dots and Boxes: random rectangular lattice with 3–5 rows and columns of dots (4–16 squares). `DuelState.gridColumns` plus vertex count determines dimensions. Capture rules, scores, labels, and drawing all use these dimensions. Arbitrary edges would change the game, so randomness is in grid dimensions.
 
-`RandomBoardsTest` checks seed reproducibility and variety, connectivity, three-colorability, Shannon cut resistance, dot spacing, rectangular-grid scoring to completion, valid component solutions, and route costs against exhaustive simple-path search over 100 seeds. No seeds are persisted in player state yet.
+`RandomBoardsTest` checks seed reproducibility and variety, connectivity, three-colorability, Shannon cut resistance, rectangular-grid scoring to completion, valid component solutions, and route costs against exhaustive simple-path search over 100 seeds. No seeds are persisted in player state yet.
 
 Potential follow-ups: persistent progress, more levels, algorithm-step visualizations, printable/PDF lessons, localization, light theme, interactive node selection, and device/browser UI verification. These are not implemented promises.
+
+## Teaching guides
+
+`GraphLearning.kt` holds pure-data `TeachingGuide`s: `graphPrimer`, `GraphTopic.guide` and `DuelKind.guide`. Each guide has a summary, intuition, vocabulary, a worked example on a small fixed graph, full pseudocode, complexity, a correctness argument, common mistakes, a 3-question self-check, resources and a pointer into the source. `GraphLearningScreen.kt` renders a guide as collapsible sections. The idea and pseudocode sections start open, pseudocode scrolls horizontally, quiz answers are revealed on tap, and links open through `LocalUriHandler` with the URL also shown as text. The hub has a "Graph basics" primer card. Lessons are listed in learning order: BFS, 0–1 BFS, Dijkstra, SCC, Biconnected. The old `theory`/`implementation`/`lesson` enum fields were removed.
+
+`GraphLearningTest` checks that every guide is complete and every link is https, and runs each worked example against the real algorithms. If you edit an example trace, update that test too. The external links were written from knowledge, not fetched, so check them in a browser before a demo. Text is English only.
+
+## Planar Color & Connect
+
+A separate sixth duel; the original Coloring Duel is unchanged. Entry uses a random count of 2–6 isolated vertices and three colors. Settings allow n=2–6 and k=1–4, applied only when Start with these settings is pressed. No initial edges are generated, per the rules. Two players alternate exactly one permanent coloring or one edge addition. Both colored endpoints must differ; uncolored endpoints may be connected. Recoloring, self-loops, duplicate edges, and nonplanar additions are rejected without consuming a turn. After every accepted move, both move types are checked. If neither is possible, the mover wins; coloring every vertex alone is not a win.
+
+`features/graph/src/commonMain/kotlin/com/playwise/graph/PlanarGame.kt` owns the state and exact bounded planarity test. For at most six vertices, a K3,3 minor must already be a subgraph; a K5 minor is a subgraph or requires one edge contraction. The test enumerates these cases. Do NOT raise the six-vertex limit without replacing this algorithm with a general planarity test. `PlanarGameTest.kt` covers forbidden graphs/minors, legal dense planar graphs, rejected moves, alternation, both terminal conditions, and seeded full games.
+
+The board is explicitly a schematic, not a computed planar embedding: visible crossings do not determine legality. A future crossing-free layout should be based on a planar embedding, without rejecting moves merely because straight segments intersect. Background: https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.planarity.check_planarity.html . No NetworkX runtime dependency is added.

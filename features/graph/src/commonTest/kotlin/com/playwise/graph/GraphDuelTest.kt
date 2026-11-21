@@ -66,33 +66,4 @@ class GraphDuelTest {
         assertNotNull(full.result)
         assertEquals(4,full.boxes.size)
     }
-    @Test fun sproutsAcceptsCurvesAndDecreasesLives() {
-        val game = SproutsState()
-        val curve = listOf(game.dots[0].point,InkPoint(.5f,.2f),game.dots[1].point)
-        assertNull(game.error(curve,1))
-        val next = game.play(curve,1)
-        assertEquals(4,next.dots.size)
-        assertEquals(8,next.dots.sumOf { 3-it.degree })
-        assertEquals(2,next.dots.last().degree)
-        assertEquals(1,next.turn)
-        assertNotNull(next.error(curve,1))
-    }
-    @Test fun sproutsAcceptsLoopsButEnforcesDegreeAndSelfIntersection() {
-        val game = SproutsState()
-        val a = game.dots[0].point
-        val loop = listOf(a,InkPoint(.12f,.15f),InkPoint(.38f,.15f),a)
-        assertNull(game.error(loop,1))
-        val next = game.play(loop,1)
-        assertEquals(2,next.dots[0].degree)
-        assertNotNull(next.error(loop,1))
-        val crossing = listOf(a,InkPoint(.8f,.8f),InkPoint(.2f,.8f),InkPoint(.8f,.2f),game.dots[1].point)
-        assertNotNull(game.error(crossing,2))
-        assertNotNull(game.error(listOf(a,game.dots[2].point,game.dots[1].point),1))
-    }
-    @Test fun sproutsRejectsCrossingOldEdgesAndAllowsJoiningNewDot() {
-        val game = SproutsState()
-        val next = game.play(listOf(game.dots[0].point,InkPoint(.5f,.35f),game.dots[1].point),1)
-        assertNotNull(next.error(listOf(game.dots[2].point,InkPoint(.4f,.1f),game.dots[1].point),1))
-        assertNull(next.error(listOf(game.dots[2].point,InkPoint(.6f,.55f),next.dots.last().point),1))
-    }
 }
