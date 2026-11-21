@@ -1,6 +1,6 @@
 package com.playwise.gametheory
 
-/** One numbered pile or staircase step, shared by both Nim games. */
+/** One numbered pile or staircase step, shared by the pile games. */
 data class NimPile(val position: Int, val stones: Int) {
     init {
         require(position >= 0)

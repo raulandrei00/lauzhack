@@ -101,7 +101,21 @@ fun StaircaseScreen(onBack: () -> Unit, onWin: () -> Unit = {}) {
         labelFor = { if (it.position == 0) "Floor" else "Step ${it.position}" }
     )
     Spacer(Modifier.height(20.dp))
-    StairExplanation()
+    if (!match.finished) {
+        val (move, winning) = optimalStairMove(match.steps.map { it.stones })
+        HintReveal(
+            if (winning) "Slide ${move.count} coin(s) from step ${move.step} to step ${move.step - 1}; the odd-step XOR becomes zero."
+            else "No forced win is available against perfect play. Try sliding 1 coin from step ${move.step}.",
+            match.steps
+        )
+        Spacer(Modifier.height(20.dp))
+    }
+    TheoryReveal(
+        "level 2 theory",
+        "Only the coins on odd-numbered steps determine the Nim score. Try to leave their XOR at zero.",
+        "A slide from an odd step removes coins from one odd pile, exactly like a Nim move. A slide from an even step adds coins to the odd step below it. From odd-step XOR zero, any odd-step move makes that XOR nonzero. An even-step move can be answered by sliding the same number of coins from the odd step below to the next even step, restoring the previous odd counts. From nonzero odd-step XOR, the ordinary Nim construction finds an odd step that can be reduced to make XOR zero. Every slide decreases the sum of each coin's step number, so the game ends; these replies prove the zero positions are losing.",
+        "XOR the sizes of steps 1, 3, 5, and so on. If the result is x > 0, choose an odd step holding a coins with (a xor x) < a, then slide a - (a xor x) coins down. If x is zero, there is no forced winning move."
+    )
 }
 
 @Composable
@@ -209,10 +223,6 @@ private fun StairLesson(difficulty: Difficulty, onDifficulty: (Difficulty) -> Un
                 Spacer(Modifier.height(10.dp))
                 Text("Choose a step above the floor. Move one or more coins exactly one step down. Coins on the floor cannot move. Make the last move to win.",
                     color = Color.White, lineHeight = 21.sp)
-                Spacer(Modifier.height(16.dp))
-                Text("YOUR EXPERIMENT", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("A move changes two neighboring steps at once. Use the XOR calculator below the board to test different groups of steps. Which group seems to predict whether you can force the last move?",
-                    color = Muted, lineHeight = 21.sp)
             }
         }
         Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {

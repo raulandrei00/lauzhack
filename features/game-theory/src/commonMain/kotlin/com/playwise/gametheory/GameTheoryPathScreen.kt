@@ -25,7 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private enum class PathPage { JOURNEY, NIM, STAIRCASE }
+private enum class PathPage { JOURNEY, NIM, STAIRCASE, TAKE, TWO_GAMES, MEX, CHOCOLATE }
 
 @Composable
 fun GameTheoryPathScreen(onBack: () -> Unit) {
@@ -35,6 +35,10 @@ fun GameTheoryPathScreen(onBack: () -> Unit) {
     when (page) {
         PathPage.NIM -> NimScreen(onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 1 })
         PathPage.STAIRCASE -> StaircaseScreen(onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 2 })
+        PathPage.TAKE -> TakeScreen(3, onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 3 })
+        PathPage.TWO_GAMES -> TakeScreen(4, onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 4 })
+        PathPage.MEX -> TakeScreen(5, onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 5 })
+        PathPage.CHOCOLATE -> ChocolateScreen(onBack = { page = PathPage.JOURNEY }, onWin = { completed = completed + 6 })
         PathPage.JOURNEY -> {
             OutlinedButton(onClick = onBack) { Text("Back to learning paths") }
             Spacer(Modifier.height(20.dp))
@@ -44,33 +48,17 @@ fun GameTheoryPathScreen(onBack: () -> Unit) {
 
             PathLevel(1, "Classic Nim", "Take stones from one pile. Learn to leave XOR zero.",
                 completed = 1 in completed, playable = true, onClick = { page = PathPage.NIM })
-            LevelExplanation(
-                title = "How level 1 works",
-                paragraphs = listOf(
-                    "On your turn, choose exactly one pile and take at least one stone from it. The player who takes the last stone wins. A position is just the number of stones in each pile.",
-                    "XOR compares the binary digits of those numbers without carrying. For example, 3 xor 4 xor 5 = 2. Try changing one pile so the score of all piles becomes zero; then watch how the AI changes it again.",
-                    "Use the calculator in the game to select any piles and see their XOR score. For Classic Nim, selecting every pile shows the score of the full position."
-                )
-            )
             PathConnector()
             PathLevel(2, "Staircase Nim", "Slide coins down one step. Test which groups of steps matter.",
                 completed = 2 in completed, playable = true, onClick = { page = PathPage.STAIRCASE })
-            LevelExplanation(
-                title = "How level 2 works",
-                paragraphs = listOf(
-                    "Each step holds coins. Choose a step above the floor and slide one or more coins to the step immediately below it. Step 0 is the floor: coins there stay, but cannot be moved again. The last player who can move wins.",
-                    "A slide changes two neighboring steps at once. That makes the full-board XOR less straightforward than in Classic Nim. Before moving, try different groups in the calculator and compare their scores after the AI replies.",
-                    "Your challenge is to discover a repeatable subset of steps that helps predict the game. The calculator reports only what you select; it does not choose a subset or reveal a winning move."
-                )
-            )
             PathConnector()
-            PathLevel(3, "Take 1 or 2", "Find a repeating pattern when moves are restricted.", false, false, {})
+            PathLevel(3, "Take up to n", "Find a repeating pattern when moves are restricted.", 3 in completed, true, { page = PathPage.TAKE })
             PathConnector()
-            PathLevel(4, "Two mini-games", "Combine independent positions and compare their values.", false, false, {})
+            PathLevel(4, "Two mini-games", "Combine independent positions and compare their values.", 4 in completed, true, { page = PathPage.TWO_GAMES })
             PathConnector()
-            PathLevel(5, "Find the missing value", "Meet mex and calculate small Grundy values.", false, false, {})
+            PathLevel(5, "Find the missing value", "Meet mex and calculate small Grundy values.", 5 in completed, true, { page = PathPage.MEX })
             PathConnector()
-            PathLevel(6, "Chocolate bar SG", "Use the ideas from earlier levels on a more complex board.", false, false, {})
+            PathLevel(6, "Chocolate bar SG", "Use the ideas from earlier levels on a more complex board.", 6 in completed, true, { page = PathPage.CHOCOLATE })
         }
     }
 }

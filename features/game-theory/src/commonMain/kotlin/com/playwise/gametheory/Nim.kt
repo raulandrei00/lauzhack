@@ -5,7 +5,7 @@ import kotlin.random.Random
 enum class Difficulty(val title: String, val description: String) {
     NOOB("Noob", "Makes random legal moves"),
     INTUITIVE("Intuitive", "Follows a simple human-looking rule"),
-    GTO("GTO", "Plays the optimal Nim strategy")
+    GTO("GTO", "Chooses a winning move when one exists")
 }
 
 enum class BoardLevel(val title: String, val description: String) {

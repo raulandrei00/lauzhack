@@ -129,7 +129,21 @@ fun NimScreen(onBack: () -> Unit, onWin: () -> Unit = {}) {
         labelFor = { "Pile ${it.position + 1}" }
     )
     Spacer(Modifier.height(20.dp))
-    StrategyPanel()
+    if (!match.finished) {
+        val (move, winning) = optimalNimMove(match.piles.map { it.stones })
+        HintReveal(
+            if (winning) "Take ${move.count} from pile ${move.pile + 1}; the remaining pile sizes XOR to zero."
+            else "This position has no forced win against perfect play. A legal move is to take 1 from pile ${move.pile + 1}.",
+            match.piles
+        )
+        Spacer(Modifier.height(20.dp))
+    }
+    TheoryReveal(
+        "level 1 theory",
+        "Leave the next player a board whose pile sizes XOR to zero. After any move they make, aim to restore zero.",
+        "A move changes exactly one pile. From XOR zero, changing that pile to a smaller number changes at least one binary bit, so the XOR cannot stay zero. From nonzero XOR x, take its highest set bit. Some pile has that bit set. Replacing its size a with a xor x makes it smaller and changes the total XOR to zero. Thus every nonzero board can move to zero, and no zero board can move to zero. The empty board is zero, so induction on remaining stones proves the strategy.",
+        "Compute x by XORing every pile size. If x is nonzero, find a pile a with (a xor x) < a; remove a - (a xor x) stones. If x is zero, no move forces a win against perfect play."
+    )
 }
 
 @Composable
@@ -278,9 +292,6 @@ private fun SidePanel(
                 Spacer(Modifier.height(12.dp))
                 Text("1. Select one pile.\n2. Remove one or more stones from it.\n3. Whoever takes the last stone wins.",
                     color = Color.White, lineHeight = 24.sp)
-                Spacer(Modifier.height(16.dp))
-                Text("The secret: if you can leave the bitwise XOR of the pile sizes at zero, your opponent has no winning reply.",
-                    color = Muted, fontSize = 13.sp, lineHeight = 19.sp)
             }
         }
     }
