@@ -33,12 +33,13 @@ fun XorWorkbench(
     Surface(shape = RoundedCornerShape(24.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(22.dp)) {
             Text("BUILD YOUR OWN XOR", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text("Tap the cards below to choose piles for this calculation. Board taps still choose a move.",
+            Text("Tap the cards below to choose piles for this calculation. Tapping balls on the board still chooses your move.",
                 color = Muted, fontSize = 14.sp)
             Spacer(Modifier.height(10.dp))
             BoxWithConstraints {
                 val columns = if (maxWidth < 460.dp) 3 else 5
-                piles.chunked(columns).forEach { rowPiles ->
+                // BoxWithConstraints stacks children like a Box, so rows need their own Column.
+                Column { piles.chunked(columns).forEach { rowPiles ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         rowPiles.forEach { pile ->
                             val active = pile.position in selectedPositions
@@ -60,7 +61,7 @@ fun XorWorkbench(
                         repeat(columns - rowPiles.size) { Spacer(Modifier.weight(1f)) }
                     }
                     Spacer(Modifier.height(8.dp))
-                }
+                } }
             }
             Text("XOR score: $score", color = Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(
@@ -68,6 +69,12 @@ fun XorWorkbench(
                 else selected.joinToString(" xor ") { it.stones.toString() } + " = $score  (binary ${score.toString(2)})",
                 color = Color.White, fontSize = 13.sp
             )
+            if (selected.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text("How it's calculated, in binary:", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                BinaryBreakdown(selected.map { labelFor(it) to it.stones })
+            }
         }
     }
 }

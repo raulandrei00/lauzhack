@@ -1,138 +1,109 @@
 package com.playwise.gametheory
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+
+private fun movesText(allowed: List<Int>) = when {
+    allowed == (1..allowed.size).toList() -> "take 1 to ${allowed.last()}"
+    else -> "take " + allowed.dropLast(1).joinToString(", ") + " or " + allowed.last()
+}
 
 @Composable
 fun TakeScreen(level: Int, onBack: () -> Unit, onWin: () -> Unit = {}) {
     var cap by remember(level) { mutableIntStateOf(3) }
     var match by remember(level) { mutableStateOf(newTakeMatch(level, cap)) }
-    var selectedPile by remember(level) { mutableIntStateOf(0) }
-    var selectedCount by remember(level) { mutableIntStateOf(1) }
+    var selection by remember(level) { mutableStateOf<TakeMove?>(null) }
+    var aiTook by remember(level) { mutableStateOf<TakeMove?>(null) }
+    var feedback by remember(level) { mutableStateOf("") }
+    var warning by remember(level) { mutableStateOf(false) }
     val title = when (level) { 3 -> "Take up to n"; 4 -> "Two mini-games"; else -> "Find the missing value" }
 
-    OutlinedButton(onClick = onBack) { Text("All game-theory levels") }
-    Spacer(Modifier.height(18.dp))
-    Text("Level $level · $title", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+    fun newBoard() {
+        match = newTakeMatch(level, cap, match.difficulty)
+        selection = null; aiTook = null; feedback = ""
+    }
+
+    fun play() {
+        val move = selection ?: return
+        val afterYou = match.after(move).piles.map { it.stones }
+        val next = match.play(move)
+        aiTook = if (next.winner == "You") null else diffMove(afterYou, next.piles.map { it.stones })?.let { TakeMove(it.pile, it.count) }
+        match = next
+        selection = null; warning = false
+        feedback = "You took ${move.count} from pile ${move.pile + 1}." +
+            (aiTook?.let { " Then the computer took ${it.count} from pile ${it.pile + 1} (red circles)." } ?: "")
+        if (next.winner == "You") onWin()
+    }
+
+    LevelHeader(onBack, "Level $level · $title", when (level) {
+        3 -> "One pile, but you may only take a few stones at a time."
+        4 -> "Two piles with different rules. Each turn, play in ONE of them."
+        else -> "Two piles where you may take 1, 3 or 4. Find each pile's hidden value."
+    })
+    HowToPlay(listOf(
+        "Tap a ball with a green ring: it shows a legal amount to take (that ball and the ones to its right).",
+        "Press the orange button to take them.",
+        "Whoever makes the last legal move wins!",
+    ))
+    Spacer(Modifier.height(14.dp))
+    if (level == 3) {
+        ChoiceChips("MOST YOU MAY TAKE (n)", (2..5).map { "$it" }, cap - 2) { cap = it + 2; newBoard() }
+        Spacer(Modifier.height(10.dp))
+    }
+    OpponentChips(match.difficulty) { match = match.copy(difficulty = it) }
+    Spacer(Modifier.height(16.dp))
+
+    if (match.finished) ResultBanner(match.winner == "You") { newBoard() }
+    else GameBanner("Your turn · round ${match.turns + 1}",
+        selection?.let { "Take ${it.count} from pile ${it.pile + 1}, leaving ${match.piles[it.pile].stones - it.count}. Press the button to confirm." }
+            ?: "Tap a ball with a green ring.")
+    Spacer(Modifier.height(12.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        match.piles.forEachIndexed { index, pile ->
+            val allowed = match.allowed[index]
+            BallPile(
+                title = "Pile ${index + 1}",
+                subtitle = "Rule: ${movesText(allowed)} stones",
+                stones = pile.stones,
+                selectedCount = selection?.takeIf { it.pile == index }?.count ?: 0,
+                enabled = !match.finished,
+                legalCounts = allowed,
+                ghosts = aiTook?.takeIf { it.pile == index }?.let { listOf(Ghost(it.count, AiRed, "Computer took ${it.count}")) } ?: emptyList(),
+                onTapBall = { count ->
+                    if (count in allowed) {
+                        selection = if (selection == TakeMove(index, count)) null else TakeMove(index, count)
+                        feedback = ""; warning = false
+                    } else {
+                        feedback = "That would take $count. From pile ${index + 1} you may only ${movesText(allowed)}. Tap a ball with a green ring."
+                        warning = true
+                    }
+                },
+            )
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    FeedbackLine(feedback, warning)
     Spacer(Modifier.height(8.dp))
-    Text(when (level) {
-        3 -> "Take 1 through n stones from a single pile."
-        4 -> "Choose one of two independent take-away games each turn."
-        else -> "Work out the missing value from the moves 1, 3, and 4."
-    }, color = Muted)
+    if (!match.finished) ActionButton(
+        selection?.let { "Take ${it.count} from pile ${it.pile + 1}" } ?: "Tap a ball first",
+        enabled = selection != null, onClick = ::play)
+    OutlinedButton(onClick = ::newBoard) { Text("New board") }
     Spacer(Modifier.height(20.dp))
 
-    Surface(shape = RoundedCornerShape(20.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (level == 3) {
-                Text("Maximum take: $cap", color = Accent, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    (2..5).forEach { n ->
-                        OutlinedButton(onClick = {
-                            cap = n; match = newTakeMatch(level, cap, match.difficulty)
-                            selectedPile = 0; selectedCount = 1
-                        }) { Text("$n") }
-                    }
-                }
-            }
-            Text(if (match.finished) "GAME COMPLETE" else "YOUR MOVE · ROUND ${match.turns + 1}", color = Accent)
-            match.piles.forEachIndexed { index, pile ->
-                val legal = match.allowed[index].filter { it <= pile.stones }
-                Surface(shape = RoundedCornerShape(12.dp), color = if (selectedPile == index) PanelLight else Panel,
-                    modifier = Modifier.fillMaxWidth().clickable(enabled = !match.finished && legal.isNotEmpty()) {
-                        selectedPile = index; selectedCount = legal.first()
-                    }) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text("Pile ${index + 1}: ${pile.stones} stones", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("You may take ${match.allowed[index].joinToString(", ")}", color = Muted)
-                    }
-                }
-            }
-            Text(match.lastMove, color = Color.White)
-            if (!match.finished) {
-                Text("Take from pile ${selectedPile + 1}", color = Accent)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    match.allowed[selectedPile].filter { it <= match.piles[selectedPile].stones }.forEach { amount ->
-                        OutlinedButton(onClick = { selectedCount = amount }) {
-                            Text(if (selectedCount == amount) "● $amount" else "$amount")
-                        }
-                    }
-                }
-                Button(onClick = {
-                    match = match.play(TakeMove(selectedPile, selectedCount))
-                    if (match.winner == "You") onWin()
-                    selectedPile = match.piles.indices.firstOrNull { i -> match.allowed[i].any { it <= match.piles[i].stones } } ?: 0
-                    selectedCount = match.allowed[selectedPile].first()
-                }, enabled = TakeMove(selectedPile, selectedCount) in match.legalMoves()) {
-                    Text("Take $selectedCount")
-                }
-            } else Text(if (match.winner == "You") "You won level $level!" else "Try another board.", color = Accent)
-            OutlinedButton(onClick = {
-                match = newTakeMatch(level, cap, match.difficulty); selectedPile = 0; selectedCount = 1
-            }) { Text("New board") }
-        }
-    }
-    Spacer(Modifier.height(16.dp))
-    Surface(shape = RoundedCornerShape(20.dp), color = Panel, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp)) {
-            Text("OPPONENT", color = Accent, fontWeight = FontWeight.Bold)
-            Difficulty.entries.forEach { option ->
-                OutlinedButton(onClick = { match = match.copy(difficulty = option) }) {
-                    Text(if (match.difficulty == option) "● ${option.title}" else option.title)
-                }
-            }
-        }
-    }
+    GrundyExplorer(match.piles.mapIndexed { i, p -> Triple("pile ${i + 1}", p.stones, match.allowed[i]) })
     Spacer(Modifier.height(16.dp))
     if (!match.finished) {
         val suggestion = match.bestMove()
-        HintReveal(
-            if (suggestion.winning) "Take ${suggestion.move.count} from pile ${suggestion.move.pile + 1}. This leaves the combined Grundy XOR at zero."
-            else "No move forces a win against perfect play. Try taking ${suggestion.move.count} from pile ${suggestion.move.pile + 1}.",
-            match.piles
-        )
+        HintCard(
+            if (suggestion.winning) "Take ${suggestion.move.count} from pile ${suggestion.move.pile + 1}. That leaves a board whose value is zero."
+            else "This board's value is zero, so no move forces a win. Try taking ${suggestion.move.count} from pile ${suggestion.move.pile + 1}.",
+            match.piles,
+            onShow = { selection = suggestion.move; feedback = ""; warning = false })
         Spacer(Modifier.height(16.dp))
     }
-    val theory = takeTheory(level)
-    TheoryReveal("level $level theory", theory.first, theory.second, theory.third)
-}
-
-private fun takeTheory(level: Int): Triple<String, String, String> = when (level) {
-    3 -> Triple(
-        "Losing pile sizes repeat every n + 1 stones: 0, n + 1, 2(n + 1), and so on.",
-        "At a multiple of n + 1, removing 1 through n lands on a different remainder. From any other remainder r, removing r lands on a multiple. By induction from the empty pile, multiples are losing and all other sizes are winning. The Grundy value is size mod (n + 1): the reachable values are all other residues 0 through n, so their smallest missing value is the current residue.",
-        "Divide the pile size by n + 1. If the remainder r is positive, take r. If it is zero, no forced winning move exists."
-    )
-    4 -> Triple(
-        "Each mini-game has its own value. XOR the two values to find the value of the combined game.",
-        "Each pile's Grundy value is its size mod (cap + 1), by the previous level. A move changes exactly one mini-game. From combined XOR zero, changing one value cannot leave zero. From nonzero XOR x, the highest set bit of x identifies a component whose value can be lowered to value xor x. Grundy values have moves to every smaller value, so that move exists. Induction on remaining stones proves zero is losing.",
-        "Compute each pile's remainder, then XOR them. Try every legal move on either pile and choose one that makes the new XOR zero. If none does, the position has no forced win."
-    )
-    else -> Triple(
-        "A pile can have a value other than its size. Find the smallest nonnegative value missing from its possible next positions: mex.",
-        "Let g(0) = 0. For s > 0, g(s) = mex of g(s - 1), g(s - 3), and g(s - 4), using only legal removals. If g(s) = 0, no move reaches zero; if g(s) > 0, zero is among the reachable values. This proves the single-pile winning rule by induction. For two independent piles, the Sprague-Grundy XOR rule gives their combined value.",
-        "Build a table from g(0) upward. For each pile and each legal removal, calculate the next Grundy values and XOR them. Play a move that leaves XOR zero when one exists."
-    )
+    NimGuideView(when (level) { 3 -> "The repeating pattern"; 4 -> "Adding games together"; else -> "mex and Grundy values" }, nimGuide(level))
 }
