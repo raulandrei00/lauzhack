@@ -53,7 +53,7 @@ Keep graph logic free of platform APIs. All new functionality lives in commonMai
 
 ## Rules and invariants
 
-- Boards have six labeled nodes A–F. Every topic has three authored boards, wrapping to board one after completion. `graphLevel` uses level modulo three.
+- Algorithm lesson boards have six labeled nodes A–F and are generated randomly on entry and when requesting another board. `graphLevel` remains as deterministic test fixtures only; the UI uses `randomLesson`.
 - Route games start at A and end at F. Only adjacent, unvisited nodes can be appended. Undo removes the last step; restart clears the attempt. Cycles are unnecessary for an optimal route with nonnegative costs, including zero-cost edges.
 - BFS boards use unit weights. Dijkstra uses nonnegative weights. 0–1 BFS rejects other weights. Any route achieving the optimal cost is accepted, not just one stored solution.
 - SCC boards are directed. The drawing includes arrows and the text road list provides explicit direction. Groups must be maximal, and each vertex belongs to exactly one group.
@@ -116,6 +116,23 @@ Manual checks still needed on each target: play both roles through terminal stat
 
 ### Extension guidance
 
-Add topics through `GraphTopic`, `graphLevel`, UI mode selection, and tests together. Add board cases with independently computed expected answers; do not only test an algorithm against itself. Keep exact maximal-set checking for components. Do not replace biconnected blocks with ordinary connected components. For weighted path changes ensure BFS unit-cost and 0–1 weight constraints remain valid. For arbitrary graphs address overflow and recursion limits.
+Add topics through `GraphTopic`, `randomLesson`, UI mode selection, and tests together. Add board cases with independently computed expected answers; do not only test an algorithm against itself. Keep exact maximal-set checking for components. Do not replace biconnected blocks with ordinary connected components. For weighted path changes ensure BFS unit-cost and 0–1 weight constraints remain valid. For arbitrary graphs address overflow and recursion limits.
+
+## Random board generation (current behavior)
+
+This section supersedes the original fixed-size/three-board descriptions above. All eleven graph activities generate a board on entry and on their new-board button. Recomposition does not regenerate it. Lesson Restart retains the same puzzle; New random board/Next random board generates another without a three-level limit. Duel New random game creates an entirely fresh state. Random draws can occasionally repeat a previous topology, especially grid sizes.
+
+`RandomBoards.kt` owns generators taking an injectable `kotlin.random.Random`; UI uses `Random.Default`, tests use explicit seeds. Keep `duelGraph`, `graphLevel`, and default `SproutsState` as deterministic rule-test fixtures. Production UI uses `randomDuel`, `randomLesson`, and `randomSprouts` instead.
+
+- Coloring: random connected six-node graph generated from a hidden three-color assignment, guaranteeing a possible complete coloring.
+- Shannon: a randomly labeled ring with A/F opposite, plus optional edges; direct A–F edges are excluded. Initial terminals have two independent routes, avoiding an immediate claim win or single-edge cut win.
+- Kayles: random spanning path plus extra edges, six vertices.
+- Shortest-path duel / route lessons: connected random topology. Weights are random 1–9 for Dijkstra and the duel, 0–1 for 0–1 BFS, exactly one for BFS. Sabotage changes costs after generation.
+- SCC: two randomly sized/labeled strongly connected groups, internal random edges and a forward-only link between groups.
+- Biconnected: two randomly sized/labeled cycle/bridge blocks sharing one articulation vertex. Counts stay beginner-friendly while membership, edges, and block sizes vary.
+- Sprouts: 3–6 dots in randomly selected jittered cells with guaranteed separation; still no initial edges, as required by the game.
+- Dots and Boxes: random rectangular lattice with 3–5 rows and columns of dots (4–16 squares). `DuelState.gridColumns` plus vertex count determines dimensions. Capture rules, scores, labels, and drawing all use these dimensions. Arbitrary edges would change the game, so randomness is in grid dimensions.
+
+`RandomBoardsTest` checks seed reproducibility and variety, connectivity, three-colorability, Shannon cut resistance, dot spacing, rectangular-grid scoring to completion, valid component solutions, and route costs against exhaustive simple-path search over 100 seeds. No seeds are persisted in player state yet.
 
 Potential follow-ups: persistent progress, more levels, algorithm-step visualizations, printable/PDF lessons, localization, light theme, interactive node selection, and device/browser UI verification. These are not implemented promises.

@@ -35,7 +35,8 @@ data class DuelState(
     val budget: Int = 5,
     val routing: Boolean = false,
     val path: List<Int> = listOf(0),
-    val result: String? = null
+    val result: String? = null,
+    val gridColumns: Int = 3
 ) {
     fun legalColor(node: Int, color: Int) = node in 0 until graph.size && color in 0..2 && node !in colors && graph.neighbors(node).none { colors[it.first] == color }
     fun color(node: Int, color: Int): DuelState {
@@ -79,9 +80,9 @@ data class DuelState(
         if (kind != DuelKind.BOXES) return this
         val edges = claimed + (index to turn)
         val newBoxes = boxes.toMutableMap()
-        for (y in 0..1) for (x in 0..1) {
-            val id = y*2+x; val a = y*3+x
-            val sides = listOf(a to a+1, a to a+3, a+1 to a+4, a+3 to a+4)
+        for (y in 0 until graph.size/gridColumns-1) for (x in 0 until gridColumns-1) {
+            val id = y*(gridColumns-1)+x; val a = y*gridColumns+x
+            val sides = listOf(a to a+1, a to a+gridColumns, a+1 to a+gridColumns+1, a+gridColumns to a+gridColumns+1)
             if (id !in boxes && sides.all { pair -> graph.edges.indexOfFirst { it.from == pair.first && it.to == pair.second } in edges }) newBoxes[id] = turn
         }
         val scores = (0..1).map { p -> newBoxes.values.count { it == p } }

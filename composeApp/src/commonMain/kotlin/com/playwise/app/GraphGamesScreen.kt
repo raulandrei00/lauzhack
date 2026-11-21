@@ -59,7 +59,7 @@ fun GraphGamesScreen(onBack: () -> Unit) {
 private fun GraphLesson(topic: GraphTopic, onComplete: () -> Unit) {
     var level by remember { mutableIntStateOf(0) }
     key(level) {
-        val graph = remember { graphLevel(topic, level) }
+        val graph = remember { randomLesson(topic) }
         val isRoute = topic in listOf(GraphTopic.BFS, GraphTopic.DIJKSTRA, GraphTopic.ZERO_ONE)
         val answers = remember { when (topic) {
             GraphTopic.SCC -> stronglyConnectedComponents(graph)
@@ -75,7 +75,8 @@ private fun GraphLesson(topic: GraphTopic, onComplete: () -> Unit) {
         var theory by remember { mutableStateOf(false) }
         val optimum = remember { if (isRoute) shortestDistances(graph, 0, topic).last() else 0 }
         Text(topic.title, fontSize = 25.sp)
-        Text("Board ${level + 1} of 3 • ${topic.mission}")
+        Text("Random board ${level + 1} • ${topic.mission}")
+        OutlinedButton(onClick = { level++ }) { Text("New random board") }
         Text(if (graph.directed) "Arrows are one-way. Select nodes with the buttons below." else "Roads work both ways. Select nodes with the buttons below.")
         GraphBoard(graph, if (isRoute) path.toSet() else selection)
         // Text road list keeps direction and cost readable without relying on the drawing or color.
@@ -146,7 +147,7 @@ private fun GraphLesson(topic: GraphTopic, onComplete: () -> Unit) {
                 else "Try building a group around ${nodeName((answers - claimed).firstOrNull()?.minOrNull() ?: 0)}. Read the rule below."
             }) { Text("Hint") }
         }
-        if (won) Button(onClick = { level = (level + 1) % 3 }) { Text(if (level == 2) "Replay board 1" else "Next board") }
+        if (won) Button(onClick = { level++ }) { Text("Next random board") }
         OutlinedButton(onClick = { theory = !theory }) { Text(if (theory) "Hide lesson" else "Theory & implementation") }
         if (theory) Surface(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

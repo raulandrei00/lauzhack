@@ -26,7 +26,7 @@ fun GraphDuelScreen(kind: DuelKind) {
     key(reset,kind) {
         if (kind == DuelKind.SPROUTS) SproutsBoard() else DuelBoard(kind)
     }
-    OutlinedButton(onClick = { reset++ }) { Text("New game") }
+    OutlinedButton(onClick = { reset++ }) { Text("New random game") }
     var explain by remember(kind) { mutableStateOf(false) }
     OutlinedButton(onClick = { explain = !explain }) { Text("${if (explain) "Hide" else "Show"} the mathematics") }
     if (explain) Text(kind.lesson, modifier = Modifier.padding(16.dp))
@@ -34,7 +34,7 @@ fun GraphDuelScreen(kind: DuelKind) {
 
 @Composable
 private fun DuelBoard(kind: DuelKind) {
-    var game by remember(kind) { mutableStateOf(DuelState(kind)) }
+    var game by remember(kind) { mutableStateOf(randomDuel(kind)) }
     var color by remember { mutableIntStateOf(0) }
     Text(game.result ?: when (kind) {
         DuelKind.COLORING -> if (game.turn == 0) "Builder (P1): color a vertex" else "Blocker (P2): color a vertex"
@@ -94,15 +94,19 @@ private fun DuelBoard(kind: DuelKind) {
 
 @Composable
 private fun NetworkPicture(game: DuelState) {
-    val positions = if (game.kind == DuelKind.BOXES) (0..8).map { InkPoint(.12f+(it%3)*.38f,.12f+(it/3)*.38f) }
+    val columns = game.gridColumns
+    val rows = game.graph.size / columns
+    val dx = .76f / (columns-1)
+    val dy = .76f / (rows-1).coerceAtLeast(1)
+    val positions = if (game.kind == DuelKind.BOXES) (0 until game.graph.size).map { InkPoint(.12f+(it%columns)*dx,.12f+(it/columns)*dy) }
         else listOf(InkPoint(.1f,.5f),InkPoint(.35f,.15f),InkPoint(.35f,.85f),InkPoint(.65f,.15f),InkPoint(.65f,.85f),InkPoint(.9f,.5f))
     BoxWithConstraints(Modifier.fillMaxWidth().height(260.dp).background(Color(0xFF172038), RoundedCornerShape(16.dp))) {
         val width = maxWidth
         Canvas(Modifier.fillMaxSize()) {
             fun pos(i: Int) = Offset(positions[i].x*size.width,positions[i].y*size.height)
             if (game.kind == DuelKind.BOXES) game.boxes.forEach { (box, owner) ->
-                val a = box/2*3+box%2
-                drawRect(playerColors[owner].copy(alpha=.25f),pos(a), androidx.compose.ui.geometry.Size(size.width*.38f,size.height*.38f))
+                val a = box/(columns-1)*columns+box%(columns-1)
+                drawRect(playerColors[owner].copy(alpha=.25f),pos(a), androidx.compose.ui.geometry.Size(size.width*dx,size.height*dy))
             }
             game.graph.edges.forEachIndexed { index,e ->
                 if (index !in game.cut && e.from !in game.removed && e.to !in game.removed) drawLine(
@@ -116,14 +120,14 @@ private fun NetworkPicture(game: DuelState) {
             }
         }
         if (game.kind == DuelKind.BOXES) game.boxes.forEach { (box,owner) ->
-            Text("P${owner+1}", color = playerColors[owner], modifier = Modifier.offset(width*(.31f+(box%2)*.38f)-10.dp,260.dp*(.31f+(box/2)*.38f)-10.dp))
+            Text("P${owner+1}", color = playerColors[owner], modifier = Modifier.offset(width*(.12f+(box%(columns-1)+.5f)*dx)-10.dp,260.dp*(.12f+(box/(columns-1)+.5f)*dy)-10.dp))
         }
     }
 }
 
 @Composable
 private fun SproutsBoard() {
-    var game by remember { mutableStateOf(SproutsState()) }
+    var game by remember { mutableStateOf(randomSprouts()) }
     var draft by remember { mutableStateOf(emptyList<InkPoint>()) }
     var dotIndex by remember { mutableIntStateOf(1) }
     var message by remember { mutableStateOf("Tap a dot, add bends in empty space, then tap the destination dot. Loops may end at the starting dot.") }
