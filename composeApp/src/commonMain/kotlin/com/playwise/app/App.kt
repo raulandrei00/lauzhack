@@ -160,7 +160,7 @@ private fun FeatureCard(onStart: () -> Unit) {
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f)) { FeatureText(onStart) }
+                    Box(Modifier.weight(1f).padding(end = 24.dp)) { FeatureText(onStart) }
                     StonePreview()
                 }
             }
@@ -170,14 +170,16 @@ private fun FeatureCard(onStart: () -> Unit) {
 
 @Composable
 private fun FeatureText(onStart: () -> Unit) {
-    Text("FIRST CHALLENGE  ·  GAME THEORY", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    Spacer(Modifier.height(12.dp))
-    Text("Nim: take the last stone", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-    Spacer(Modifier.height(10.dp))
-    Text("Choose one pile. Take any number of stones. Outsmart three kinds of AI.", color = Muted)
-    Spacer(Modifier.height(22.dp))
-    Button(onClick = onStart, colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
-        Text("Play Nim  →", fontWeight = FontWeight.Bold)
+    Column {
+        Text("FIRST CHALLENGE  ·  GAME THEORY", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+        Text("Nim: take the last stone", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        Text("Choose one pile. Take any number of stones. Outsmart three kinds of AI.", color = Muted)
+        Spacer(Modifier.height(22.dp))
+        Button(onClick = onStart, colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+            Text("Play Nim  →", fontWeight = FontWeight.Bold)
+        }
     }
 }
 
