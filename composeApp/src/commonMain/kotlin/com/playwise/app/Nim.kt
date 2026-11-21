@@ -8,10 +8,40 @@ enum class Difficulty(val title: String, val description: String) {
     GTO("GTO", "Plays the optimal Nim strategy")
 }
 
+enum class BoardLevel(val title: String, val description: String) {
+    BEGINNER("Beginner", "Classic board: 3, 4, 5"),
+    EASY("Easy", "3 piles, 1–5 stones each"),
+    MEDIUM("Medium", "4 piles, 1–10 stones each"),
+    HARD("💀 Hard", "5–10 piles, 1–64 stones each");
+
+    fun createPiles(random: Random = Random.Default): List<Int> = when (this) {
+        BEGINNER -> listOf(3, 4, 5)
+        EASY -> randomWinningBoard(3, 5, random)
+        MEDIUM -> randomWinningBoard(4, 10, random)
+        HARD -> randomWinningBoard(random.nextInt(5, 11), 64, random)
+    }
+}
+
+private fun randomWinningBoard(count: Int, maxPileSize: Int, random: Random): List<Int> {
+    val piles = MutableList(count) { random.nextInt(1, maxPileSize + 1) }
+    if (piles.reduce(Int::xor) == 0) {
+        val index = random.nextInt(count)
+        piles[index] = if (piles[index] == maxPileSize) 1 else piles[index] + 1
+    }
+    return piles
+}
+
+fun newNimMatch(
+    level: BoardLevel,
+    difficulty: Difficulty,
+    random: Random = Random.Default
+): NimMatch = NimMatch(piles = level.createPiles(random), level = level, difficulty = difficulty)
+
 data class Move(val pile: Int, val count: Int)
 
 data class NimMatch(
     val piles: List<Int> = listOf(3, 4, 5),
+    val level: BoardLevel = BoardLevel.BEGINNER,
     val difficulty: Difficulty = Difficulty.INTUITIVE,
     val winner: String? = null,
     val lastMove: String = "Your turn. Pick a pile and remove at least one stone.",
