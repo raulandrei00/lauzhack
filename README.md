@@ -1,4 +1,4 @@
-jgkjggktopic list:
+ktopic list:
 
 graphs (dijsktra, bfs bfs01, biconnected comps, SCC)
 games (nim, nim variations, games with chocolate bar, games with coins)
